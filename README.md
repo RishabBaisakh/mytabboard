@@ -1,33 +1,47 @@
-This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
+# MyTabBoard
 
-## Getting Started
+An AI-powered Chrome new tab workspace that helps you plan your day, track tasks, manage workflows, and stay informed.
 
-First, run the development server:
+## Overview
 
-```bash
-pnpm dev
-# or
-npm run dev
-```
+MyTabBoard transforms your browser's new tab into a personalized productivity dashboard.
 
-Open your browser and load the appropriate development build. For example, if you are developing for the chrome browser, using manifest v3, use: `build/chrome-mv3-dev`.
+Instead of opening an empty tab, you get a smart workspace with:
 
-You can start editing the popup by modifying `popup.tsx`. It should auto-update as you make changes. To add an options page, simply add a `options.tsx` file to the root of the project, with a react component default exported. Likewise to add a content page, add a `content.ts` file to the root of the project, importing some module and do some logic, then reload the extension on your browser.
+- ✅ Daily and weekly task planning
+- 🚀 Sprint-style workflow tracking
+- 🧠 AI-powered insights and assistance
+- 📰 Personalized news and learning feeds
+- 💻 Developer-focused information and resources
+- 📌 Notes and personal knowledge management
 
-For further guidance, [visit our Documentation](https://docs.plasmo.com/)
+## Features
 
-## Making production build
+### Productivity Dashboard
+- Manage daily TODOs
+- Organize weekly goals
+- Track progress and priorities
 
-Run the following:
+### AI Assistant
+- Get intelligent suggestions
+- Summarize information
+- Assist with planning and decision-making
 
-```bash
-pnpm build
-# or
-npm run build
-```
+### Personalized Workspace
+- Store your interests
+- Track your technology stack
+- Customize your dashboard experience
 
-This should create a production bundle for your extension, ready to be zipped and published to the stores.
+### Information Hub
+- Curated AI and technology news
+- Learning resources
+- Developer updates
 
-## Submit to the webstores
+## Tech Stack
 
-The easiest way to deploy your Plasmo extension is to use the built-in [bpp](https://bpp.browser.market) GitHub action. Prior to using this action however, make sure to build your extension and upload the first version to the store to establish the basic credentials. Then, simply follow [this setup instruction](https://docs.plasmo.com/framework/workflows/submit) and you should be on your way for automated submission!
+- React + TypeScript
+- Plasmo Framework
+- Chrome Extension Manifest V3
+- Tailwind CSS
+- AI APIs
+- Browser Storage APIs
