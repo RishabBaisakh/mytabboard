@@ -2,6 +2,8 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { AppLayout } from "~components/layout/AppLayout"
 
+import "../styles/globals.css"
+
 import DashboardPage from "./pages/DashboardPage"
 import GoalsPage from "./pages/GoalsPage"
 import NewsInsightsPage from "./pages/NewsInsightsPage"

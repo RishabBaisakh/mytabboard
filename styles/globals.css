@@ -1,0 +1,62 @@
+@import "./sidebar.css";
+
+:root {
+	color-scheme: light;
+	font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	color: #202a25;
+	background: #f4f6f2;
+	font-weight: 400;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#__plasmo {
+	min-width: 320px;
+	min-height: 100%;
+	margin: 0;
+}
+
+body {
+	min-height: 100vh;
+}
+
+button,
+input,
+textarea,
+select {
+	font: inherit;
+}
+
+a {
+	color: inherit;
+}
+
+.app-layout {
+	display: grid;
+	grid-template-columns: 248px minmax(0, 1fr);
+	min-height: 100vh;
+}
+
+.main-content {
+	min-width: 0;
+	padding: 40px clamp(24px, 5vw, 72px);
+}
+
+@media (max-width: 720px) {
+	.app-layout {
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: auto minmax(0, 1fr);
+	}
+
+	.main-content {
+		padding: 28px 20px;
+	}
+}
