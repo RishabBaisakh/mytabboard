@@ -8,8 +8,8 @@
 	height: 100vh;
 	padding: 32px 20px;
 	overflow-y: auto;
-	color: #f7f8f3;
-	background: #203a31;
+	color: #edf4ff;
+	background: #101d35;
 }
 
 .sidebar h2 {
@@ -31,7 +31,7 @@
 	min-height: 42px;
 	padding: 10px 12px;
 	border-radius: 5px;
-	color: #d0dbd4;
+	color: #c1d0e7;
 	font-size: 14px;
 	text-decoration: none;
 	transition: color 140ms ease, background-color 140ms ease;
@@ -43,9 +43,41 @@
 }
 
 .nav-link.is-active {
-	color: #203a31;
-	background: #d7e8c7;
+	color: #10203a;
+	background: #a9c8f5;
 	font-weight: 600;
+}
+
+.sidebar-profile {
+	display: flex;
+	align-items: center;
+	gap: 11px;
+	min-height: 58px;
+	margin-top: auto;
+	padding: 16px 4px 0;
+	border-top: 1px solid rgb(193 208 231 / 20%);
+	color: #edf4ff;
+	font-size: 14px;
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.profile-avatar {
+	display: grid;
+	flex: 0 0 36px;
+	place-items: center;
+	width: 36px;
+	height: 36px;
+	border: 1px solid rgb(255 255 255 / 25%);
+	border-radius: 50%;
+	background: #a9c8f5;
+	color: #10203a;
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.sidebar-profile:hover .profile-name {
+	color: #a9c8f5;
 }
 
 @media (max-width: 720px) {
@@ -74,5 +106,10 @@
 		flex: 0 0 auto;
 		min-height: 38px;
 		padding: 8px 10px;
+	}
+
+	.sidebar-profile {
+		min-height: 48px;
+		padding-top: 10px;
 	}
 }

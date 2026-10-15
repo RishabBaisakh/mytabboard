@@ -27,6 +27,13 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <NavLink className="sidebar-profile" to="/profile">
+        <span className="profile-avatar" aria-hidden="true">
+          JD
+        </span>
+        <span className="profile-name">John Doe</span>
+      </NavLink>
     </aside>
   )
 }
