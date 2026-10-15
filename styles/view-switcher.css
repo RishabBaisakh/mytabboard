@@ -1,0 +1,38 @@
+.view-switcher {
+	position: fixed;
+	z-index: 10;
+	top: 16px;
+	right: 16px;
+	display: flex;
+	gap: 3px;
+	padding: 4px;
+	border: 1px solid rgb(255 255 255 / 72%);
+	border-radius: 8px;
+	background: rgb(255 255 255 / 78%);
+	box-shadow: 0 4px 18px rgb(45 28 50 / 14%);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+}
+
+.view-switcher button {
+	min-width: 52px;
+	min-height: 30px;
+	padding: 0 10px;
+	border: 0;
+	border-radius: 5px;
+	background: transparent;
+	color: #665a69;
+	font-size: 12px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.view-switcher button[aria-pressed="true"] {
+	background: #8e5a89;
+	color: #fff;
+}
+
+.view-switcher button:focus-visible {
+	outline: 2px solid #8e5a89;
+	outline-offset: 2px;
+}

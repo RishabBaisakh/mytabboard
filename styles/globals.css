@@ -1,4 +1,6 @@
 @import "./sidebar.css";
+@import "./auth.css";
+@import "./view-switcher.css";
 
 :root {
 	color-scheme: light;
