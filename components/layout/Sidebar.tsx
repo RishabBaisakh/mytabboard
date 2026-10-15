@@ -38,6 +38,11 @@ export function Sidebar() {
               aria-hidden="true"
             />
             {link.label}
+            {link.path === "/" && (
+              <span className="nav-badge" aria-label="3 notifications">
+                3
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

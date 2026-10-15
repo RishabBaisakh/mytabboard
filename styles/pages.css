@@ -55,6 +55,7 @@
 }
 
 .dashboard-notifications {
+	position: relative;
 	display: grid;
 	flex: 0 0 40px;
 	place-items: center;
@@ -65,6 +66,24 @@
 	background: #fff;
 	color: #34435b;
 	cursor: pointer;
+}
+
+.notification-badge {
+	position: absolute;
+	top: -5px;
+	right: -5px;
+	display: grid;
+	min-width: 17px;
+	height: 17px;
+	place-items: center;
+	padding: 0 4px;
+	border: 2px solid #f1f3f6;
+	border-radius: 999px;
+	background: #dc3d4b;
+	color: #fff;
+	font-size: 9px;
+	font-weight: 700;
+	line-height: 1;
 }
 
 .dashboard-notifications:hover {

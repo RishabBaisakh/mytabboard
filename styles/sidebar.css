@@ -44,6 +44,21 @@
 	height: 18px;
 }
 
+.nav-badge {
+	display: inline-grid;
+	min-width: 18px;
+	height: 18px;
+	place-items: center;
+	margin-left: auto;
+	padding: 0 5px;
+	border-radius: 999px;
+	background: #dc3d4b;
+	color: #fff;
+	font-size: 10px;
+	font-weight: 700;
+	line-height: 1;
+}
+
 .nav-link:hover {
 	color: #fff;
 	background: rgb(255 255 255 / 8%);

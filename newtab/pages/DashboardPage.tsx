@@ -130,9 +130,12 @@ function DashboardPage() {
           <button
             className="dashboard-notifications"
             type="button"
-            aria-label="Notifications"
+            aria-label="Notifications, 3 unread"
             title="Notifications">
             <Bell size={19} strokeWidth={1.8} aria-hidden="true" />
+            <span className="notification-badge" aria-hidden="true">
+              3
+            </span>
           </button>
         </div>
       </div>
