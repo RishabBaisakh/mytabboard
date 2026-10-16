@@ -85,17 +85,14 @@
 }
 
 .profile-avatar {
-	display: grid;
+	display: block;
 	flex: 0 0 36px;
-	place-items: center;
 	width: 36px;
 	height: 36px;
 	border: 1px solid rgb(255 255 255 / 25%);
 	border-radius: 50%;
 	background: #a9c8f5;
-	color: #10203a;
-	font-size: 12px;
-	font-weight: 700;
+	object-fit: cover;
 }
 
 .sidebar-profile:hover .profile-name {

@@ -8,6 +8,8 @@ import {
 } from "lucide-react"
 import { NavLink } from "react-router-dom"
 
+import { PROFILE_AVATAR_URL } from "../profileAvatar"
+
 const links = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Planner", path: "/planner", icon: CalendarDays },
@@ -48,9 +50,12 @@ export function Sidebar() {
       </nav>
 
       <NavLink className="sidebar-profile" to="/profile">
-        <span className="profile-avatar" aria-hidden="true">
-          JD
-        </span>
+        <img
+          className="profile-avatar"
+          src={PROFILE_AVATAR_URL}
+          alt=""
+          aria-hidden="true"
+        />
         <span className="profile-name">John Doe</span>
       </NavLink>
     </aside>
