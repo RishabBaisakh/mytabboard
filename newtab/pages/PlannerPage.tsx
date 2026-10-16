@@ -1,5 +1,7 @@
-import { CalendarDays, ChevronDown, Plus } from "lucide-react"
+import { CalendarDays, Check, ChevronDown, Plus } from "lucide-react"
 import React from "react"
+
+import "../../styles/pages/planner.css"
 
 const dayTasks = [
   {
@@ -25,20 +27,39 @@ const dayTasks = [
     title: "Team check-in",
     detail: "Share progress and next steps",
     tone: "coral"
+  },
+  {
+    time: "10:00 AM",
+    title: "Product design sync",
+    detail: "Review the latest concepts",
+    tone: "teal"
+  },
+  {
+    time: "1:00 PM",
+    title: "Focus time",
+    detail: "Work on dashboard updates",
+    tone: "amber"
+  },
+  {
+    time: "3:30 PM",
+    title: "Team check-in",
+    detail: "Share progress and next steps",
+    tone: "coral"
   }
 ]
 
 const weekTasks = [
-  { day: "MON", title: "Review weekly priorities" },
-  { day: "TUE", title: "Prepare product design concepts" },
-  { day: "WED", title: "Meet with the product team" },
-  { day: "THU", title: "Finish dashboard updates" },
-  { day: "FRI", title: "Share the weekly progress recap" }
+  { day: "MON", title: "Review weekly priorities", done: true },
+  { day: "TUE", title: "Prepare product design concepts", done: false },
+  { day: "WED", title: "Meet with the product team", done: true },
+  { day: "THU", title: "Finish dashboard updates", done: false },
+  { day: "FRI", title: "Share the weekly progress recap", done: false }
 ]
 
 function PlannerPage() {
   const [selectedView, setSelectedView] = React.useState("Day")
   const [plannerTasks, setPlannerTasks] = React.useState(dayTasks)
+  const [weeklyTasks, setWeeklyTasks] = React.useState(weekTasks)
   const [selectedDate, setSelectedDate] = React.useState(() => {
     const today = new Date()
     today.setMinutes(today.getMinutes() - today.getTimezoneOffset())
@@ -161,8 +182,27 @@ function PlannerPage() {
             <h2 id="planner-week-title">This Week</h2>
           </header>
           <ul className="planner-week-list">
-            {weekTasks.map(({ day, title }) => (
+            {weeklyTasks.map(({ day, title, done }) => (
               <li className="planner-week-task" key={day}>
+                <button
+                  className="planner-week-check"
+                  type="button"
+                  role="checkbox"
+                  aria-checked={done}
+                  aria-label={
+                    done ? `Mark ${title} incomplete` : `Mark ${title} complete`
+                  }
+                  onClick={() =>
+                    setWeeklyTasks((tasks) =>
+                      tasks.map((task) =>
+                        task.day === day ? { ...task, done: !task.done } : task
+                      )
+                    )
+                  }>
+                  {done && (
+                    <Check size={12} strokeWidth={2.5} aria-hidden="true" />
+                  )}
+                </button>
                 <span>{day}</span>
                 <p title={title}>{title}</p>
               </li>

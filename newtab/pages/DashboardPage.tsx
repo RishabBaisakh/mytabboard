@@ -17,6 +17,8 @@ import {
 } from "lucide-react"
 import { Link } from "react-router-dom"
 
+import "../../styles/pages/dashboard.css"
+
 const schedule = [
   {
     title: "Review daily priorities",
