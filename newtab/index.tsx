@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { HashRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { AppLayout } from "~components/layout/AppLayout"
 import { AuthLayout } from "~components/layout/AuthLayout"
@@ -19,7 +19,7 @@ import TasksPage from "./pages/TasksPage"
 
 export default function NewTab() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <>
         <ViewSwitcher />
         <Routes>
@@ -39,6 +39,6 @@ export default function NewTab() {
           </Route>
         </Routes>
       </>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
