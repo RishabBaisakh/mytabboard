@@ -107,6 +107,11 @@ export function createAuthService(
       return tokens
     },
 
+    async hasStoredTokens() {
+      const tokens = await api.getTokens()
+      return Boolean(tokens?.access && tokens.refresh)
+    },
+
     currentUser<T = unknown>() {
       return api.request<T>("/api/auth/user/", { authenticated: true })
     }

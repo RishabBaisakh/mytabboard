@@ -13,11 +13,15 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly payload?: unknown
+    readonly payload?: unknown,
+    cause?: unknown
   ) {
     super(message)
     this.name = "ApiError"
+    this.cause = cause
   }
+
+  cause?: unknown
 }
 
 export type ApiRequestOptions = {
@@ -71,7 +75,7 @@ export class ApiClient {
   constructor(
     baseUrl: string,
     private readonly storage: TokenStorage,
-    private readonly fetcher: typeof fetch = fetch
+    private readonly fetcher: typeof fetch = globalThis.fetch.bind(globalThis)
   ) {
     this.baseUrl = baseUrl.replace(/\/+$/, "")
   }
@@ -112,8 +116,8 @@ export class ApiClient {
         headers,
         body: body === undefined ? undefined : JSON.stringify(body)
       })
-    } catch {
-      throw new ApiError("Unable to reach the API server.", 0)
+    } catch (cause) {
+      throw new ApiError("Unable to reach the API server.", 0, undefined, cause)
     }
 
     const payload = await readResponse(response)

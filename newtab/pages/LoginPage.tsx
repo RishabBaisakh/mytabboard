@@ -22,6 +22,7 @@ function LoginPage() {
       })
       navigate("/", { replace: true })
     } catch (error) {
+      console.error("Login error:", error)
       setFeedback(
         error instanceof Error ? error.message : "Unable to sign in right now."
       )

@@ -95,6 +95,44 @@ describe("auth API", () => {
     })
   })
 
+  it("preserves the underlying fetch failure for diagnosis", async () => {
+    const fetchFailure = new TypeError("Failed to fetch")
+    const fetcher = createFetchMock(async () => {
+      throw fetchFailure
+    })
+    const { api } = createTestAuth(fetcher)
+
+    await expect(
+      api.request("/api/auth/login/", {
+        method: "POST",
+        body: { email: "taylor@example.com", password: "not-logged" }
+      })
+    ).rejects.toMatchObject({
+      message: "Unable to reach the API server.",
+      cause: fetchFailure
+    })
+  })
+
+  it("calls the default browser fetch with its global receiver", async () => {
+    const fetcher = vi.fn(function (this: unknown) {
+      expect(this).toBe(globalThis)
+      return Promise.resolve(jsonResponse({ ok: true }))
+    }) as unknown as typeof fetch
+    vi.stubGlobal("fetch", fetcher)
+
+    try {
+      const api = new ApiClient(
+        "http://127.0.0.1:8000",
+        new MemoryTokenStorage()
+      )
+
+      await expect(api.request("/health/")).resolves.toEqual({ ok: true })
+      expect(fetcher).toHaveBeenCalledOnce()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it("refreshes once, stores both rotated tokens, and retries with the new access token", async () => {
     const storage = new MemoryTokenStorage()
     storage.tokens = { access: "expired-access", refresh: "old-refresh" }
