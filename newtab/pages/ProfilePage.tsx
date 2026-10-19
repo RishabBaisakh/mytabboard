@@ -14,7 +14,8 @@ import {
 import { useState } from "react"
 import type { CSSProperties } from "react"
 
-import { getOptionVisual } from "../../components/optionVisuals"
+import { getOptionVisual } from "~components/optionVisuals"
+
 import { PROFILE_AVATAR_URL } from "../../components/profileAvatar"
 import { ApiError } from "../../services/api"
 import { profileService, type ProfileFields } from "../../services/profile"

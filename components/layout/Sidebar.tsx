@@ -61,7 +61,7 @@ export function Sidebar() {
           alt=""
           aria-hidden="true"
         />
-        <span className="profile-name">{displayName || "My profile"}</span>
+        <span className="profile-name">{displayName || ""}</span>
       </NavLink>
     </aside>
   )

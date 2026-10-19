@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react"
 
+import { getOptionVisual } from "~components/optionVisuals"
+
 import type { OnboardingOption } from "../../services/onboardingTypes"
-import { getOptionVisual } from "../optionVisuals"
 
 type SelectableOptionsProps = {
   label: string
