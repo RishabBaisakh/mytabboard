@@ -8,6 +8,7 @@ import {
 } from "lucide-react"
 import { NavLink } from "react-router-dom"
 
+import { useAppSelector } from "../../store/hooks"
 import { PROFILE_AVATAR_URL } from "../profileAvatar"
 
 const links = [
@@ -20,6 +21,10 @@ const links = [
 ]
 
 export function Sidebar() {
+  const displayName = useAppSelector(
+    (state) => state.profile.profile?.display_name
+  )
+
   return (
     <aside className="sidebar">
       <h2>TabBoard</h2>
@@ -56,7 +61,7 @@ export function Sidebar() {
           alt=""
           aria-hidden="true"
         />
-        <span className="profile-name">John Doe</span>
+        <span className="profile-name">{displayName || "My profile"}</span>
       </NavLink>
     </aside>
   )

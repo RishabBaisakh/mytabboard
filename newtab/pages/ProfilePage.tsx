@@ -11,17 +11,15 @@ import {
   X,
   Zap
 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { CSSProperties } from "react"
 
 import { getOptionVisual } from "../../components/optionVisuals"
 import { PROFILE_AVATAR_URL } from "../../components/profileAvatar"
 import { ApiError } from "../../services/api"
-import {
-  profileService,
-  type ProfileFields,
-  type ProfileOptionCatalogs
-} from "../../services/profile"
+import { profileService, type ProfileFields } from "../../services/profile"
+import { useAppDispatch, useAppSelector } from "../../store/hooks"
+import { loadProfile, profileUpdated } from "../../store/profileSlice"
 
 import "../../styles/pages/profile.css"
 
@@ -36,46 +34,17 @@ const journeyMilestones = [
 ]
 
 function ProfilePage() {
-  const [loadAttempt, setLoadAttempt] = useState(0)
-  const [profile, setProfile] = useState<ProfileFields | null>(null)
-  const [options, setOptions] = useState<ProfileOptionCatalogs | null>(null)
+  const dispatch = useAppDispatch()
+  const profile = useAppSelector((state) => state.profile.profile)
+  const options = useAppSelector((state) => state.profile.options)
+  const profileStatus = useAppSelector((state) => state.profile.status)
+  const loadError = useAppSelector((state) => state.profile.error)
   const [activeEditor, setActiveEditor] = useState<ProfileEditor | null>(null)
   const [editorDraft, setEditorDraft] = useState<string | number[]>("")
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [loadError, setLoadError] = useState("")
   const [saveError, setSaveError] = useState("")
   const [saveMessage, setSaveMessage] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-
-  useEffect(() => {
-    let isCurrent = true
-    setIsLoading(true)
-    setLoadError("")
-
-    profileService
-      .load()
-      .then((loaded) => {
-        if (!isCurrent) return
-        setProfile(loaded.profile)
-        setOptions(loaded.options)
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) return
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : "Unable to load your profile right now."
-        )
-      })
-      .finally(() => {
-        if (isCurrent) setIsLoading(false)
-      })
-
-    return () => {
-      isCurrent = false
-    }
-  }, [loadAttempt])
 
   function openEditor(editor: ProfileEditor) {
     if (!profile) return
@@ -118,7 +87,7 @@ function ProfilePage() {
             ? { bio: String(editorDraft) }
             : { [activeEditor]: editorDraft as number[] }
       const savedProfile = await profileService.save({ ...profile, ...changes })
-      setProfile({ ...profile, ...savedProfile })
+      dispatch(profileUpdated({ ...profile, ...savedProfile }))
       setActiveEditor(null)
       setSaveMessage("Profile saved.")
     } catch (error) {
@@ -135,7 +104,7 @@ function ProfilePage() {
     }
   }
 
-  if (isLoading) {
+  if (profileStatus === "idle" || profileStatus === "loading") {
     return (
       <section className="profile-page" aria-labelledby="profile-page-title">
         <h1 id="profile-page-title">My corner of the world</h1>
@@ -146,7 +115,7 @@ function ProfilePage() {
     )
   }
 
-  if (loadError || !profile || !options) {
+  if (profileStatus === "failed" || !profile || !options) {
     return (
       <section className="profile-page" aria-labelledby="profile-page-title">
         <h1 id="profile-page-title">My corner of the world</h1>
@@ -156,7 +125,7 @@ function ProfilePage() {
         <button
           className="profile-save-button"
           type="button"
-          onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+          onClick={() => void dispatch(loadProfile())}>
           <RefreshCw size={15} aria-hidden="true" />
           Try again
         </button>

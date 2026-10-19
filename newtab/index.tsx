@@ -1,3 +1,4 @@
+import { Provider } from "react-redux"
 import { HashRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { AppLayout } from "~components/layout/AppLayout"
@@ -8,6 +9,7 @@ import { OnboardingPage } from "../components/onboarding/OnboardingPage"
 
 import "../styles/globals.css"
 
+import { store } from "../store"
 import DashboardPage from "./pages/DashboardPage"
 import GoalsPage from "./pages/GoalsPage"
 import LoginPage from "./pages/LoginPage"
@@ -20,32 +22,34 @@ import TasksPage from "./pages/TasksPage"
 
 export default function NewTab() {
   return (
-    <HashRouter>
-      <>
-        <Routes>
-          <Route element={<SessionGuard guestOnly />}>
-            <Route element={<AuthLayout />}>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
+    <Provider store={store}>
+      <HashRouter>
+        <>
+          <Routes>
+            <Route element={<SessionGuard guestOnly />}>
+              <Route element={<AuthLayout />}>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
+              </Route>
             </Route>
-          </Route>
-          <Route element={<SessionGuard onboardingOnly />}>
-            <Route path="/onboarding" element={<OnboardingPage />} />
-          </Route>
-          <Route element={<SessionGuard />}>
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/planner" element={<PlannerPage />} />
-              <Route path="/goals" element={<GoalsPage />} />
-              <Route path="/tasks" element={<TasksPage />} />
-              <Route path="/newsandinsights" element={<NewsInsightsPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+            <Route element={<SessionGuard onboardingOnly />}>
+              <Route path="/onboarding" element={<OnboardingPage />} />
             </Route>
-          </Route>
-        </Routes>
-      </>
-    </HashRouter>
+            <Route element={<SessionGuard />}>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/planner" element={<PlannerPage />} />
+                <Route path="/goals" element={<GoalsPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/newsandinsights" element={<NewsInsightsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Route>
+            </Route>
+          </Routes>
+        </>
+      </HashRouter>
+    </Provider>
   )
 }
