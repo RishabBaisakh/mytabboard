@@ -4,25 +4,30 @@ import {
   Heart,
   Lightbulb,
   Palette,
+  Pencil,
+  RefreshCw,
   Sparkles,
   Target,
+  X,
   Zap
 } from "lucide-react"
-import React from "react"
+import { useEffect, useState } from "react"
+import type { CSSProperties } from "react"
 
+import { getOptionVisual } from "../../components/optionVisuals"
 import { PROFILE_AVATAR_URL } from "../../components/profileAvatar"
+import { ApiError } from "../../services/api"
+import {
+  profileService,
+  type ProfileFields,
+  type ProfileOptionCatalogs
+} from "../../services/profile"
 
 import "../../styles/pages/profile.css"
 
-const profileTags = ["Product thinker", "Habit builder", "Curious mind"]
-
-const interests = [
-  { label: "Design systems", icon: Palette, tone: "coral" },
-  { label: "Tiny habits", icon: Target, tone: "green" },
-  { label: "Good books", icon: BookOpen, tone: "blue" },
-  { label: "New ideas", icon: Lightbulb, tone: "amber" },
-  { label: "Exploring", icon: Compass, tone: "teal" }
-]
+const interestIcons = [Palette, Target, BookOpen, Lightbulb, Compass]
+const interestTones = ["coral", "green", "blue", "amber", "teal"]
+type ProfileEditor = "display_name" | "bio" | "interests" | "personality_tags"
 
 const journeyMilestones = [
   { label: "Stay curious", detail: "The beginning", tone: "amber" },
@@ -31,68 +36,181 @@ const journeyMilestones = [
 ]
 
 function ProfilePage() {
+  const [loadAttempt, setLoadAttempt] = useState(0)
+  const [profile, setProfile] = useState<ProfileFields | null>(null)
+  const [options, setOptions] = useState<ProfileOptionCatalogs | null>(null)
+  const [activeEditor, setActiveEditor] = useState<ProfileEditor | null>(null)
+  const [editorDraft, setEditorDraft] = useState<string | number[]>("")
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [loadError, setLoadError] = useState("")
+  const [saveError, setSaveError] = useState("")
+  const [saveMessage, setSaveMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    let isCurrent = true
+    setIsLoading(true)
+    setLoadError("")
+
+    profileService
+      .load()
+      .then((loaded) => {
+        if (!isCurrent) return
+        setProfile(loaded.profile)
+        setOptions(loaded.options)
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent) return
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load your profile right now."
+        )
+      })
+      .finally(() => {
+        if (isCurrent) setIsLoading(false)
+      })
+
+    return () => {
+      isCurrent = false
+    }
+  }, [loadAttempt])
+
+  function openEditor(editor: ProfileEditor) {
+    if (!profile) return
+    setActiveEditor(editor)
+    setErrors({})
+    setSaveError("")
+    setEditorDraft(
+      editor === "display_name"
+        ? profile.display_name
+        : editor === "bio"
+          ? profile.bio
+          : [...profile[editor]]
+    )
+  }
+
+  function toggleEditorOption(id: number) {
+    setEditorDraft((current) => {
+      if (!Array.isArray(current)) return current
+      return current.includes(id)
+        ? current.filter((selectedId) => selectedId !== id)
+        : [...current, id]
+    })
+    if (activeEditor)
+      setErrors((current) => ({ ...current, [activeEditor]: "" }))
+    setSaveError("")
+  }
+
+  async function saveEditor() {
+    if (!profile || !activeEditor || isSaving) return
+
+    setIsSaving(true)
+    setErrors({})
+    setSaveError("")
+    setSaveMessage("")
+    try {
+      const changes: Partial<ProfileFields> =
+        activeEditor === "display_name"
+          ? { display_name: String(editorDraft) }
+          : activeEditor === "bio"
+            ? { bio: String(editorDraft) }
+            : { [activeEditor]: editorDraft as number[] }
+      const savedProfile = await profileService.save({ ...profile, ...changes })
+      setProfile({ ...profile, ...savedProfile })
+      setActiveEditor(null)
+      setSaveMessage("Profile saved.")
+    } catch (error) {
+      const fieldErrors = getServerFieldErrors(error)
+      setErrors(fieldErrors)
+      setSaveError(
+        Object.values(fieldErrors).join(" ") ||
+          (error instanceof Error
+            ? error.message
+            : "Unable to save your profile. Please try again.")
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <section className="profile-page" aria-labelledby="profile-page-title">
+        <h1 id="profile-page-title">My corner of the world</h1>
+        <p className="profile-state-message" role="status">
+          Loading your profile...
+        </p>
+      </section>
+    )
+  }
+
+  if (loadError || !profile || !options) {
+    return (
+      <section className="profile-page" aria-labelledby="profile-page-title">
+        <h1 id="profile-page-title">My corner of the world</h1>
+        <div className="profile-feedback profile-feedback-error" role="alert">
+          {loadError || "Your profile is unavailable right now."}
+        </div>
+        <button
+          className="profile-save-button"
+          type="button"
+          onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+          <RefreshCw size={15} aria-hidden="true" />
+          Try again
+        </button>
+      </section>
+    )
+  }
+
+  const selectedPersonalityTags = options.personality_tags.filter((option) =>
+    profile.personality_tags.includes(option.id)
+  )
+  const selectedInterests = options.interests.filter((option) =>
+    profile.interests.includes(option.id)
+  )
+
   return (
     <section className="profile-page" aria-labelledby="profile-page-title">
-      <header className="profile-page-heading">
-        <div>
-          <p className="profile-eyebrow">A work in progress</p>
-          <h1 id="profile-page-title">My corner of the world</h1>
-          <p className="profile-page-subtitle">
-            The person behind the plans, projects, and small daily wins.
-          </p>
-        </div>
-        <Sparkles
-          className="profile-heading-sparkle"
-          size={26}
-          aria-hidden="true"
-        />
-      </header>
-
-      <section className="profile-journey" aria-labelledby="journey-title">
-        <div className="profile-section-heading">
-          <div>
-            <p className="profile-eyebrow">A few chapters so far</p>
-            <h2 id="journey-title">My journey</h2>
-          </div>
-          <span className="journey-note">Still becoming</span>
-        </div>
-        <ol className="profile-journey-list">
-          {journeyMilestones.map(({ label, detail, tone }, index) => (
-            <li className={`journey-step journey-${tone}`} key={label}>
-              <span className="journey-step-marker" aria-hidden="true">
-                {index + 1}
-              </span>
-              <div>
-                <h3>{label}</h3>
-                <p>{detail}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
       <article className="profile-identity-card">
         <div className="profile-portrait-wrap">
           <img
             className="profile-portrait"
             src={PROFILE_AVATAR_URL}
-            alt="Cartoon portrait of John Doe"
+            alt="Profile avatar"
           />
         </div>
         <div className="profile-identity-copy">
-          <p className="profile-eyebrow">The human behind TabBoard</p>
-          <h2>John Doe</h2>
-          <p className="profile-handle">
-            @johndoe <span>·</span> Portland, OR
-          </p>
-          <div className="profile-tags" aria-label="Profile tags">
-            {profileTags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
+          <div className="profile-name-row">
+            <h2>
+              <button
+                className="profile-name-trigger"
+                type="button"
+                onClick={() => openEditor("display_name")}>
+                {profile.display_name || "Your name"}
+              </button>
+            </h2>
+            <button
+              className="profile-edit-button"
+              type="button"
+              aria-label="Edit display name"
+              title="Edit display name"
+              onClick={() => openEditor("display_name")}>
+              <Pencil size={15} aria-hidden="true" />
+            </button>
           </div>
+          <p className="profile-time-zone-value">
+            {profile.time_zone || "Time zone not set"}
+          </p>
         </div>
         <span className="profile-card-mark" aria-hidden="true">
-          JD
+          {profile.display_name
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((namePart) => namePart[0]?.toUpperCase() ?? "")
+            .join("") || "?"}
         </span>
       </article>
 
@@ -121,7 +239,9 @@ function ProfilePage() {
             <p className="profile-eyebrow">The energy</p>
             <h2 id="vibe-title">My vibe</h2>
             <p className="profile-snapshot-text">
-              Curious, quietly ambitious, and happiest when making things.
+              {selectedPersonalityTags.length > 0
+                ? selectedPersonalityTags.map((tag) => tag.label).join(", ")
+                : "Choose a few personality tags that feel like you."}
             </p>
           </div>
           <Zap className="profile-vibe-spark" size={18} aria-hidden="true" />
@@ -132,12 +252,19 @@ function ProfilePage() {
         <div className="profile-about-accent" aria-hidden="true" />
         <div>
           <p className="profile-eyebrow">In a nutshell</p>
-          <h2 id="about-title">A little about me</h2>
-          <p>
-            I’m a product-minded maker who likes turning fuzzy ideas into
-            thoughtful experiences. Outside the screen, you’ll find me
-            collecting books, taking the long way home, and learning to slow
-            down enough to notice the good stuff.
+          <div className="profile-section-title-row">
+            <h2 id="about-title">A little about me</h2>
+            <button
+              className="profile-edit-button"
+              type="button"
+              aria-label="Edit bio"
+              title="Edit bio"
+              onClick={() => openEditor("bio")}>
+              <Pencil size={15} aria-hidden="true" />
+            </button>
+          </div>
+          <p className="profile-bio-value">
+            {profile.bio || "No bio added yet."}
           </p>
         </div>
       </section>
@@ -148,17 +275,261 @@ function ProfilePage() {
             <p className="profile-eyebrow">Things I keep coming back to</p>
             <h2 id="interests-title">Current interests</h2>
           </div>
+          <button
+            className="profile-edit-button"
+            type="button"
+            aria-label="Edit interests"
+            title="Edit interests"
+            onClick={() => openEditor("interests")}>
+            <Pencil size={15} aria-hidden="true" />
+          </button>
         </div>
         <ul className="profile-interest-list">
-          {interests.map(({ label, icon: Icon, tone }) => (
-            <li className={`interest-tag interest-${tone}`} key={label}>
-              <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
-              {label}
-            </li>
-          ))}
+          {selectedInterests.map((interest, index) => {
+            const Icon = interestIcons[index % interestIcons.length]
+            return (
+              <li key={interest.id}>
+                <span
+                  className={`interest-tag interest-${interestTones[index % interestTones.length]}`}>
+                  <Icon size={15} strokeWidth={1.9} aria-hidden="true" />
+                  {interest.label}
+                </span>
+              </li>
+            )
+          })}
         </ul>
+        {selectedInterests.length === 0 && (
+          <p className="profile-empty-selection">No interests selected yet.</p>
+        )}
       </section>
+
+      <section
+        className="profile-personality"
+        aria-labelledby="personality-title">
+        <div className="profile-section-heading">
+          <div>
+            <p className="profile-eyebrow">How I think and work</p>
+            <h2 id="personality-title">Personality tags</h2>
+          </div>
+          <button
+            className="profile-edit-button"
+            type="button"
+            aria-label="Edit personality tags"
+            title="Edit personality tags"
+            onClick={() => openEditor("personality_tags")}>
+            <Pencil size={15} aria-hidden="true" />
+          </button>
+        </div>
+        <div
+          className="profile-personality-options"
+          aria-label="Personality tags">
+          {selectedPersonalityTags.map((tag) => {
+            const visual = getOptionVisual(tag.label)
+            const TagIcon = visual.icon
+            return (
+              <span className="profile-personality-tag" key={tag.id}>
+                <span
+                  className="profile-option-icon"
+                  style={{ "--option-accent": visual.color } as CSSProperties}
+                  aria-hidden="true">
+                  <TagIcon size={14} strokeWidth={2} />
+                </span>
+                {tag.label}
+              </span>
+            )
+          })}
+        </div>
+        {selectedPersonalityTags.length === 0 && (
+          <p className="profile-empty-selection">
+            No personality tags selected yet.
+          </p>
+        )}
+      </section>
+      {saveMessage && (
+        <p className="profile-feedback" role="status">
+          {saveMessage}
+        </p>
+      )}
+      {activeEditor && (
+        <div
+          className="profile-dialog-backdrop"
+          onClick={() => !isSaving && setActiveEditor(null)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && !isSaving) setActiveEditor(null)
+          }}>
+          <section
+            className="profile-edit-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="profile-dialog-title"
+            onClick={(event) => event.stopPropagation()}>
+            <header className="profile-dialog-header">
+              <h2 id="profile-dialog-title">
+                {activeEditor === "display_name"
+                  ? "Edit display name"
+                  : activeEditor === "bio"
+                    ? "Edit bio"
+                    : activeEditor === "interests"
+                      ? "Edit interests"
+                      : "Edit personality tags"}
+              </h2>
+              <button
+                className="profile-edit-button"
+                type="button"
+                aria-label="Close dialog"
+                disabled={isSaving}
+                onClick={() => setActiveEditor(null)}>
+                <X size={18} aria-hidden="true" />
+              </button>
+            </header>
+            {activeEditor === "display_name" && (
+              <label className="profile-dialog-field">
+                Display name
+                <input
+                  autoFocus
+                  value={String(editorDraft)}
+                  onChange={(event) =>
+                    setEditorDraft(event.currentTarget.value)
+                  }
+                  aria-invalid={Boolean(errors.display_name)}
+                  aria-describedby={
+                    errors.display_name ? "profile-name-error" : undefined
+                  }
+                />
+                {errors.display_name && (
+                  <span className="profile-field-error" id="profile-name-error">
+                    {errors.display_name}
+                  </span>
+                )}
+              </label>
+            )}
+            {activeEditor === "bio" && (
+              <label className="profile-dialog-field">
+                Bio
+                <textarea
+                  autoFocus
+                  rows={5}
+                  value={String(editorDraft)}
+                  onChange={(event) =>
+                    setEditorDraft(event.currentTarget.value)
+                  }
+                  aria-invalid={Boolean(errors.bio)}
+                  aria-describedby={
+                    errors.bio ? "profile-bio-error" : undefined
+                  }
+                />
+                {errors.bio && (
+                  <span className="profile-field-error" id="profile-bio-error">
+                    {errors.bio}
+                  </span>
+                )}
+              </label>
+            )}
+            {(activeEditor === "interests" ||
+              activeEditor === "personality_tags") && (
+              <fieldset className="profile-dialog-options">
+                <legend>
+                  {activeEditor === "interests"
+                    ? "Choose your interests"
+                    : "Choose your personality tags"}
+                </legend>
+                {(activeEditor === "interests"
+                  ? options.interests
+                  : options.personality_tags
+                ).map((option) => {
+                  const selectedIds = Array.isArray(editorDraft)
+                    ? editorDraft
+                    : []
+                  const inputId = `profile-option-${activeEditor}-${option.id}`
+                  const visual = getOptionVisual(option.label)
+                  const OptionIcon = visual.icon
+                  return (
+                    <label
+                      className="profile-dialog-option"
+                      htmlFor={inputId}
+                      key={option.id}>
+                      <input
+                        id={inputId}
+                        type="checkbox"
+                        checked={selectedIds.includes(option.id)}
+                        onChange={() => toggleEditorOption(option.id)}
+                      />
+                      <span
+                        className="profile-option-icon"
+                        style={
+                          {
+                            "--option-accent": visual.color
+                          } as CSSProperties
+                        }
+                        aria-hidden="true">
+                        <OptionIcon size={14} strokeWidth={2} />
+                      </span>
+                      <span>{option.label}</span>
+                    </label>
+                  )
+                })}
+              </fieldset>
+            )}
+            {saveError && (
+              <p
+                className="profile-feedback profile-feedback-error"
+                role="alert">
+                {saveError}
+              </p>
+            )}
+            <footer className="profile-dialog-actions">
+              <button
+                className="profile-dialog-cancel"
+                type="button"
+                disabled={isSaving}
+                onClick={() => setActiveEditor(null)}>
+                Cancel
+              </button>
+              <button
+                className="profile-save-button"
+                type="button"
+                disabled={isSaving}
+                onClick={saveEditor}>
+                {isSaving ? "Saving..." : "Save changes"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </section>
+  )
+}
+
+function getServerFieldErrors(error: unknown): Record<string, string> {
+  if (
+    !(error instanceof ApiError) ||
+    !error.payload ||
+    typeof error.payload !== "object"
+  ) {
+    return {}
+  }
+
+  const payload = error.payload as Record<string, unknown>
+  const fields =
+    payload.errors && typeof payload.errors === "object"
+      ? (payload.errors as Record<string, unknown>)
+      : payload
+
+  function collectMessages(value: unknown): string[] {
+    if (typeof value === "string") return [value]
+    if (Array.isArray(value)) return value.flatMap(collectMessages)
+    if (value && typeof value === "object") {
+      return Object.values(value).flatMap(collectMessages)
+    }
+    return []
+  }
+
+  return Object.fromEntries(
+    Object.entries(fields)
+      .map(
+        ([field, value]) => [field, collectMessages(value).join(" ")] as const
+      )
+      .filter(([, message]) => message.length > 0)
   )
 }
 
