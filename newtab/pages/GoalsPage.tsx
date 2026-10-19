@@ -9,32 +9,31 @@ import { useEffect, useState, type FormEvent } from "react"
 
 import { ApiError } from "../../services/api"
 import {
+  getGoalStatus,
   goalsService,
   type Goal,
   type GoalWritePayload
 } from "../../services/goals"
 import { tasksService, type Task } from "../../services/tasks"
+import {
+  goalCreated,
+  goalUpdated,
+  loadGoals,
+  selectAllGoals,
+  selectGoalsError,
+  selectGoalsStatus
+} from "../../store/goalsSlice"
+import { useAppDispatch, useAppSelector } from "../../store/hooks"
+import {
+  loadTasks,
+  selectAllTasks,
+  selectTasksError,
+  selectTasksStatus
+} from "../../store/tasksSlice"
 
 import "../../styles/pages/goals.css"
 
 type GoalFilter = "Active" | "Completed" | "All"
-type GoalStatus = "active" | "completed" | "archived"
-
-function getTaskProgress(tasks: Task[]) {
-  if (tasks.length === 0) return 0
-  return Math.round(
-    (tasks.filter((task) => task.status === "completed").length /
-      tasks.length) *
-      100
-  )
-}
-
-function getGoalStatus(goal: Goal, tasks: Task[]): GoalStatus {
-  if (goal.status) return goal.status
-  return tasks.length > 0 && getTaskProgress(tasks) === 100
-    ? "completed"
-    : "active"
-}
 
 function formatDueDate(value?: string | null) {
   if (!value) return ""
@@ -93,15 +92,23 @@ function getServerFieldErrors(error: unknown): Record<string, string> {
 }
 
 function GoalsPage() {
-  const [goals, setGoals] = useState<Goal[]>([])
-  const [tasks, setTasks] = useState<Task[]>([])
+  const dispatch = useAppDispatch()
+  const goals = useAppSelector(selectAllGoals)
+  const tasks = useAppSelector(selectAllTasks)
+  const goalsStatus = useAppSelector(selectGoalsStatus)
+  const tasksStatus = useAppSelector(selectTasksStatus)
+  const goalsError = useAppSelector(selectGoalsError)
+  const tasksError = useAppSelector(selectTasksError)
+  const isLoading =
+    goalsStatus === "idle" ||
+    goalsStatus === "loading" ||
+    tasksStatus === "idle" ||
+    tasksStatus === "loading"
+  const loadError = goalsError || tasksError || ""
   const [filter, setFilter] = useState<GoalFilter>("Active")
   const [expandedGoals, setExpandedGoals] = useState<Set<number>>(
     () => new Set()
   )
-  const [loadAttempt, setLoadAttempt] = useState(0)
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [title, setTitle] = useState("")
@@ -113,32 +120,9 @@ function GoalsPage() {
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
-    let isCurrent = true
-    setIsLoading(true)
-    setLoadError("")
-
-    Promise.all([goalsService.list(), tasksService.list()])
-      .then(([loadedGoals, loadedTasks]) => {
-        if (!isCurrent) return
-        setGoals(loadedGoals)
-        setTasks(loadedTasks)
-      })
-      .catch((error: unknown) => {
-        if (!isCurrent) return
-        setLoadError(
-          error instanceof Error
-            ? error.message
-            : "Unable to load goals right now."
-        )
-      })
-      .finally(() => {
-        if (isCurrent) setIsLoading(false)
-      })
-
-    return () => {
-      isCurrent = false
-    }
-  }, [loadAttempt])
+    void dispatch(loadGoals())
+    void dispatch(loadTasks())
+  }, [dispatch])
 
   function openCreateDialog() {
     setEditingGoal(null)
@@ -192,15 +176,11 @@ function GoalsPage() {
     try {
       if (editingGoal) {
         const savedGoal = await goalsService.update(editingGoal.id, payload)
-        setGoals((current) =>
-          current.map((goal) =>
-            goal.id === editingGoal.id ? { ...goal, ...savedGoal } : goal
-          )
-        )
+        dispatch(goalUpdated({ ...editingGoal, ...savedGoal }))
         setSaveMessage("Goal updated.")
       } else {
         const savedGoal = await goalsService.create(payload)
-        setGoals((current) => [...current, savedGoal])
+        dispatch(goalCreated(savedGoal))
         setSaveMessage("Goal created.")
       }
       setIsDialogOpen(false)
@@ -271,7 +251,10 @@ function GoalsPage() {
           <button
             className="goals-retry-button"
             type="button"
-            onClick={() => setLoadAttempt((attempt) => attempt + 1)}>
+            onClick={() => {
+              if (goalsStatus === "failed") void dispatch(loadGoals())
+              if (tasksStatus === "failed") void dispatch(loadTasks())
+            }}>
             <RefreshCw size={15} aria-hidden="true" />
             Try again
           </button>
@@ -286,7 +269,15 @@ function GoalsPage() {
         <div className="goal-list" aria-label={`${filter} goals`}>
           {filteredGoals.map((goal) => {
             const goalTasks = tasks.filter((task) => task.goal === goal.id)
-            const progress = getTaskProgress(goalTasks)
+            const progress =
+              goalTasks.length === 0
+                ? 0
+                : Math.round(
+                    (goalTasks.filter((task) => task.status === "completed")
+                      .length /
+                      goalTasks.length) *
+                      100
+                  )
             const hasTasks = goalTasks.length > 0
             const isExpanded = expandedGoals.has(goal.id)
             const goalStatus = getGoalStatus(goal, goalTasks)

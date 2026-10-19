@@ -119,4 +119,44 @@ describe("tasks service", () => {
     expect(calls[3].body).toEqual(createPayload)
     expect(calls[4].body).toEqual(patchPayload)
   })
+
+  it("creates a task without assigning a goal when goal is null", async () => {
+    const payload: TaskWriteFields = {
+      title: "Focus session",
+      description: "",
+      status: "in_progress",
+      priority: "medium",
+      goal: null,
+      scheduled_start: "2026-10-18T14:00:00Z",
+      scheduled_end: "2026-10-18T15:00:00Z"
+    }
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        response(
+          {
+            id: "2a9d9d63-7dc6-4f71-b7b2-9c8921fb4fc0",
+            user: 42,
+            ...payload,
+            completed_at: null,
+            created_at: "2026-10-18T13:00:00Z",
+            updated_at: "2026-10-18T13:00:00Z"
+          },
+          201
+        )
+    )
+    const api = new ApiClient(
+      "http://127.0.0.1:8000",
+      new MemoryTokenStorage(),
+      fetchMock as unknown as typeof fetch
+    )
+    const service = createTasksService(api)
+
+    await service.create(payload)
+
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      goal: null,
+      scheduled_start: payload.scheduled_start,
+      scheduled_end: payload.scheduled_end
+    })
+  })
 })
