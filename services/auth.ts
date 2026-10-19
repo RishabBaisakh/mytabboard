@@ -1,6 +1,7 @@
-import { API_BASE_URL, ApiClient, type AuthTokens } from "./api"
+import type { ApiClient, AuthTokens } from "./api"
+import { apiClient } from "./apiClient"
 import { requestGoogleAccessToken } from "./chromeIdentity"
-import { ChromeTokenStorage } from "./chromeStorage"
+import { onboardingService } from "./onboarding"
 
 type AuthResponse = {
   access: string
@@ -40,6 +41,7 @@ export function createAuthService(
       refresh: response.refresh
     }
     await api.setTokens(tokens)
+    onboardingService.clearCache()
     return response
   }
 
@@ -96,6 +98,7 @@ export function createAuthService(
         // The local session must end even when the backend rejects an expired token.
       } finally {
         await api.clearTokens()
+        onboardingService.clearCache()
       }
     },
 
@@ -118,6 +121,4 @@ export function createAuthService(
   }
 }
 
-export const authService = createAuthService(
-  new ApiClient(API_BASE_URL, new ChromeTokenStorage())
-)
+export const authService = createAuthService(apiClient)

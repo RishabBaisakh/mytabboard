@@ -4,6 +4,8 @@ import { AppLayout } from "~components/layout/AppLayout"
 import { AuthLayout } from "~components/layout/AuthLayout"
 import { SessionGuard } from "~components/layout/SessionGuard"
 
+import { OnboardingPage } from "../components/onboarding/OnboardingPage"
+
 import "../styles/globals.css"
 
 import DashboardPage from "./pages/DashboardPage"
@@ -26,6 +28,9 @@ export default function NewTab() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
             </Route>
+          </Route>
+          <Route element={<SessionGuard onboardingOnly />}>
+            <Route path="/onboarding" element={<OnboardingPage />} />
           </Route>
           <Route element={<SessionGuard />}>
             <Route element={<AppLayout />}>

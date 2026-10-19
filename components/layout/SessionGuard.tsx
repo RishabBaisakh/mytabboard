@@ -3,14 +3,24 @@ import { Navigate, Outlet, useLocation } from "react-router-dom"
 
 import { ApiError } from "../../services/api"
 import { authService } from "../../services/auth"
+import { onboardingService } from "../../services/onboarding"
 
 type SessionGuardProps = {
   guestOnly?: boolean
+  onboardingOnly?: boolean
 }
 
-type SessionStatus = "checking" | "authenticated" | "anonymous" | "error"
+type SessionStatus =
+  | "checking"
+  | "authenticated"
+  | "onboarding"
+  | "anonymous"
+  | "error"
 
-export function SessionGuard({ guestOnly = false }: SessionGuardProps) {
+export function SessionGuard({
+  guestOnly = false,
+  onboardingOnly = false
+}: SessionGuardProps) {
   const location = useLocation()
   const [attempt, setAttempt] = useState(0)
   const [status, setStatus] = useState<SessionStatus>("checking")
@@ -30,7 +40,10 @@ export function SessionGuard({ guestOnly = false }: SessionGuardProps) {
         }
 
         await authService.currentUser()
-        if (isCurrent) setStatus("authenticated")
+        const onboarding = await onboardingService.status()
+        if (isCurrent) {
+          setStatus(onboarding.is_complete ? "authenticated" : "onboarding")
+        }
       } catch (error) {
         if (!isCurrent) return
 
@@ -86,8 +99,28 @@ export function SessionGuard({ guestOnly = false }: SessionGuardProps) {
     return <Navigate to="/" replace />
   }
 
+  if (guestOnly && status === "onboarding") {
+    return <Navigate to="/onboarding" replace />
+  }
+
+  if (onboardingOnly && status === "authenticated") {
+    return <Navigate to="/" replace />
+  }
+
   if (!guestOnly && status === "anonymous") {
     return <Navigate to="/login" replace state={{ from: location }} />
+  }
+
+  if (!guestOnly && !onboardingOnly && status === "onboarding") {
+    return <Navigate to="/onboarding" replace />
+  }
+
+  if (onboardingOnly && status === "anonymous") {
+    return <Navigate to="/login" replace state={{ from: location }} />
+  }
+
+  if (onboardingOnly && status === "onboarding") {
+    return <Outlet />
   }
 
   return <Outlet />
