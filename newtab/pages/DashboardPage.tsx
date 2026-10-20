@@ -17,6 +17,8 @@ import {
 } from "lucide-react"
 import { Link } from "react-router-dom"
 
+import { useAppSelector } from "../../store/hooks"
+
 import "../../styles/pages/dashboard.css"
 
 const schedule = [
@@ -99,7 +101,14 @@ const quickActions = [
 ]
 
 function DashboardPage() {
+  const displayName = useAppSelector(
+    (state) => state.profile.profile?.display_name
+  )
   const currentDate = new Date()
+  const hour = currentDate.getHours()
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"
+  const firstName = displayName?.trim().split(/\s+/)[0]
   const dateLabel = currentDate.toLocaleDateString(undefined, {
     weekday: "long",
     month: "short",
@@ -142,7 +151,10 @@ function DashboardPage() {
         </div>
       </div>
       <header className="page-header">
-        <h1 id="dashboard-title">Good morning, John! 👋</h1>
+        <h1 id="dashboard-title">
+          {greeting}
+          {firstName ? `, ${firstName}` : ""}! 👋
+        </h1>
         <p className="page-subtitle">
           Small steps every day lead to big results.
         </p>
