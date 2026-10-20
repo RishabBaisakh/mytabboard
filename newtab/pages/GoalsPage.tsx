@@ -11,6 +11,7 @@ import { ApiError } from "../../services/api"
 import {
   getGoalStatus,
   goalsService,
+  isValidDateValue,
   type Goal,
   type GoalWritePayload
 } from "../../services/goals"
@@ -30,12 +31,13 @@ import {
   selectTasksError,
   selectTasksStatus
 } from "../../store/tasksSlice"
+import { toLocalDateValue } from "./plannerCalendar"
 
 import "../../styles/pages/goals.css"
 
 type GoalFilter = "Active" | "Completed" | "All"
 
-function formatDueDate(value?: string | null) {
+function formatGoalDate(value?: string | null) {
   if (!value) return ""
   const date = new Date(`${value}T00:00:00`)
   if (Number.isNaN(date.getTime())) return value
@@ -113,6 +115,7 @@ function GoalsPage() {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
+  const [startDate, setStartDate] = useState(() => toLocalDateValue(new Date()))
   const [dueDate, setDueDate] = useState("")
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [saveError, setSaveError] = useState("")
@@ -128,6 +131,7 @@ function GoalsPage() {
     setEditingGoal(null)
     setTitle("")
     setDescription("")
+    setStartDate(toLocalDateValue(new Date()))
     setDueDate("")
     setFormErrors({})
     setSaveError("")
@@ -138,6 +142,8 @@ function GoalsPage() {
     setEditingGoal(goal)
     setTitle(goal.title)
     setDescription(goal.description ?? "")
+    // Legacy goals may lack start_date; prefill without persisting until saved.
+    setStartDate(goal.start_date || toLocalDateValue(new Date()))
     setDueDate(goal.due_date ?? "")
     setFormErrors({})
     setSaveError("")
@@ -158,14 +164,21 @@ function GoalsPage() {
     if (isSaving) return
 
     const cleanTitle = title.trim()
-    if (!cleanTitle) {
-      setFormErrors({ title: "Enter a goal title." })
+    const nextErrors: Record<string, string> = {}
+    if (!cleanTitle) nextErrors.title = "Enter a goal title."
+    if (!startDate) nextErrors.start_date = "Choose a start date."
+    else if (!isValidDateValue(startDate)) {
+      nextErrors.start_date = "Enter a valid start date."
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors)
       return
     }
 
     const payload: GoalWritePayload = {
       title: cleanTitle,
       description: description.trim(),
+      start_date: startDate,
       due_date: dueDate || null
     }
 
@@ -322,11 +335,25 @@ function GoalsPage() {
                     {goal.description && (
                       <p className="goal-description">{goal.description}</p>
                     )}
-                    {goal.due_date && (
-                      <time className="goal-due-date" dateTime={goal.due_date}>
-                        <CalendarDays size={14} aria-hidden="true" />
-                        Due {formatDueDate(goal.due_date)}
-                      </time>
+                    {(goal.start_date || goal.due_date) && (
+                      <div className="goal-dates">
+                        {goal.start_date && (
+                          <time
+                            className="goal-due-date"
+                            dateTime={goal.start_date}>
+                            <CalendarDays size={14} aria-hidden="true" />
+                            Starts {formatGoalDate(goal.start_date)}
+                          </time>
+                        )}
+                        {goal.due_date && (
+                          <time
+                            className="goal-due-date"
+                            dateTime={goal.due_date}>
+                            <CalendarDays size={14} aria-hidden="true" />
+                            Due {formatGoalDate(goal.due_date)}
+                          </time>
+                        )}
+                      </div>
                     )}
                   </div>
                   <button
@@ -422,6 +449,26 @@ function GoalsPage() {
                 {formErrors.description && (
                   <span className="goals-field-error">
                     {formErrors.description}
+                  </span>
+                )}
+              </label>
+              <label className="goals-form-field">
+                Start date
+                <input
+                  type="date"
+                  required
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.currentTarget.value)}
+                  aria-invalid={Boolean(formErrors.start_date)}
+                  aria-describedby={
+                    formErrors.start_date ? "goal-start-date-error" : undefined
+                  }
+                />
+                {formErrors.start_date && (
+                  <span
+                    className="goals-field-error"
+                    id="goal-start-date-error">
+                    {formErrors.start_date}
                   </span>
                 )}
               </label>

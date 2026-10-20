@@ -173,6 +173,17 @@
   line-height: 1.3;
 }
 
+.goal-dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin-top: 9px;
+}
+
+.goal-dates .goal-due-date {
+  margin-top: 0;
+}
+
 .goal-status {
   padding: 3px 7px;
   border-radius: 4px;
@@ -228,6 +239,10 @@
   display: grid;
   margin: 14px 0 0 42px;
   border-top: 1px solid #edf0f4;
+}
+
+.goal-task-list[hidden] {
+  display: none;
 }
 
 .goal-task-row {

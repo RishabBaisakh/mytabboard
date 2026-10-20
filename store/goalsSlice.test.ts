@@ -22,18 +22,29 @@ const tasks: Task[] = [
 
 describe("incomplete goal selector", () => {
   it("excludes completed and archived goals, including task-derived completion", () => {
-    const activeGoal = { id: 1, title: "Active", status: "active" as const }
+    const activeGoal = {
+      id: 1,
+      title: "Active",
+      start_date: "2026-10-01",
+      status: "active" as const
+    }
     const completedGoal = {
       id: 2,
       title: "Completed",
+      start_date: "2026-10-01",
       status: "completed" as const
     }
     const archivedGoal = {
       id: 4,
       title: "Archived",
+      start_date: "2026-10-01",
       status: "archived" as const
     }
-    const taskCompletedGoal = { id: 3, title: "Task completed" }
+    const taskCompletedGoal = {
+      id: 3,
+      title: "Task completed",
+      start_date: "2026-10-01"
+    }
     const state = {
       goals: {
         items: [activeGoal, completedGoal, archivedGoal, taskCompletedGoal],

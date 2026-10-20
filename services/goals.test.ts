@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import { ApiClient, type AuthTokens, type TokenStorage } from "./api"
-import { createGoalsService } from "./goals"
+import { createGoalsService, isValidDateValue } from "./goals"
 
 class MemoryTokenStorage implements TokenStorage {
   tokens: AuthTokens | null = {
@@ -30,11 +30,54 @@ function response(data: unknown) {
 }
 
 describe("goals service", () => {
+  it("validates date-only start dates", () => {
+    expect(isValidDateValue("2026-10-20")).toBe(true)
+    expect(isValidDateValue("2026-02-30")).toBe(false)
+    expect(isValidDateValue("")).toBe(false)
+    expect(isValidDateValue("2026-10-20T00:00:00Z")).toBe(false)
+  })
+
+  it("sends start_date on create and update and keeps it in responses", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) =>
+        response({ id: 1, ...JSON.parse(String(init?.body)) })
+    )
+    const service = createGoalsService(
+      new ApiClient(
+        "http://127.0.0.1:8000",
+        new MemoryTokenStorage(),
+        fetchMock as unknown as typeof fetch
+      )
+    )
+    const payload = { title: "Plan", start_date: "2026-11-02", due_date: null }
+
+    await expect(service.create(payload)).resolves.toMatchObject({
+      start_date: "2026-11-02",
+      due_date: null
+    })
+    await expect(
+      service.update(1, { ...payload, start_date: "2026-11-03" })
+    ).resolves.toMatchObject({ start_date: "2026-11-03" })
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      start_date: "2026-11-03"
+    })
+  })
+
   it("lists the authenticated user's goals without modifying them", async () => {
     const goals = [
-      { id: 8, title: "Ship the project", due_date: "2026-12-01" },
-      { id: 9, title: "Plan next quarter", due_date: null },
-      { id: 10, title: "Keep learning" }
+      {
+        id: 8,
+        title: "Ship the project",
+        start_date: "2026-10-01",
+        due_date: "2026-12-01"
+      },
+      {
+        id: 9,
+        title: "Plan next quarter",
+        start_date: "2026-10-05",
+        due_date: null
+      },
+      { id: 10, title: "Keep learning", start_date: "2026-10-20" }
     ]
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, _init?: RequestInit) => response(goals)
@@ -66,6 +109,7 @@ describe("goals service", () => {
       id: 15,
       title: "Ship the project",
       description: "Finish the first release",
+      start_date: "2026-10-20",
       due_date: "2026-12-01",
       status: "active" as const
     }
@@ -82,6 +126,7 @@ describe("goals service", () => {
     const payload = {
       title: savedGoal.title,
       description: savedGoal.description,
+      start_date: savedGoal.start_date,
       due_date: savedGoal.due_date
     }
 
