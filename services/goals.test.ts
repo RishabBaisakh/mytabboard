@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
 
 import { ApiClient, type AuthTokens, type TokenStorage } from "./api"
-import { createGoalsService, isValidDateValue } from "./goals"
+import {
+  createGoalsService,
+  getGoalTimelineLabel,
+  isValidDateValue
+} from "./goals"
 
 class MemoryTokenStorage implements TokenStorage {
   tokens: AuthTokens | null = {
@@ -30,6 +34,14 @@ function response(data: unknown) {
 }
 
 describe("goals service", () => {
+  it("maps timeline values to friendly labels and tolerates unknown ones", () => {
+    expect(getGoalTimelineLabel("short_term")).toBe("Short-term")
+    expect(getGoalTimelineLabel("mid_term")).toBe("Mid-term")
+    expect(getGoalTimelineLabel("long_term")).toBe("Long-term")
+    expect(getGoalTimelineLabel(undefined)).toBeUndefined()
+    expect(getGoalTimelineLabel("other")).toBeUndefined()
+  })
+
   it("validates date-only start dates", () => {
     expect(isValidDateValue("2026-10-20")).toBe(true)
     expect(isValidDateValue("2026-02-30")).toBe(false)
@@ -49,17 +61,27 @@ describe("goals service", () => {
         fetchMock as unknown as typeof fetch
       )
     )
-    const payload = { title: "Plan", start_date: "2026-11-02", due_date: null }
+    const payload = {
+      title: "Plan",
+      start_date: "2026-11-02",
+      due_date: null,
+      timeline: "mid_term" as const,
+      motivation: "Stay focused"
+    }
 
     await expect(service.create(payload)).resolves.toMatchObject({
       start_date: "2026-11-02",
-      due_date: null
+      due_date: null,
+      timeline: "mid_term",
+      motivation: "Stay focused"
     })
     await expect(
       service.update(1, { ...payload, start_date: "2026-11-03" })
     ).resolves.toMatchObject({ start_date: "2026-11-03" })
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
-      start_date: "2026-11-03"
+      start_date: "2026-11-03",
+      timeline: "mid_term",
+      motivation: "Stay focused"
     })
   })
 
@@ -111,6 +133,8 @@ describe("goals service", () => {
       description: "Finish the first release",
       start_date: "2026-10-20",
       due_date: "2026-12-01",
+      timeline: "long_term" as const,
+      motivation: "It matters",
       status: "active" as const
     }
     const fetchMock = vi.fn(
@@ -127,7 +151,9 @@ describe("goals service", () => {
       title: savedGoal.title,
       description: savedGoal.description,
       start_date: savedGoal.start_date,
-      due_date: savedGoal.due_date
+      due_date: savedGoal.due_date,
+      timeline: savedGoal.timeline,
+      motivation: savedGoal.motivation
     }
 
     await expect(service.create(payload)).resolves.toEqual(savedGoal)

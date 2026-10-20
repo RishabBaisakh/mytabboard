@@ -8,11 +8,16 @@ import {
 import { useEffect, useState, type FormEvent } from "react"
 
 import { ApiError } from "../../services/api"
+import { buildGoalPayload, getGoalFormValues } from "../../services/goalForm"
 import {
+  DEFAULT_GOAL_TIMELINE,
   getGoalStatus,
+  getGoalTimelineLabel,
+  GOAL_TIMELINE_OPTIONS,
   goalsService,
   isValidDateValue,
   type Goal,
+  type GoalTimeline,
   type GoalWritePayload
 } from "../../services/goals"
 import { tasksService, type Task } from "../../services/tasks"
@@ -117,6 +122,8 @@ function GoalsPage() {
   const [description, setDescription] = useState("")
   const [startDate, setStartDate] = useState(() => toLocalDateValue(new Date()))
   const [dueDate, setDueDate] = useState("")
+  const [timeline, setTimeline] = useState<GoalTimeline>(DEFAULT_GOAL_TIMELINE)
+  const [motivation, setMotivation] = useState("")
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
   const [saveError, setSaveError] = useState("")
   const [saveMessage, setSaveMessage] = useState("")
@@ -127,27 +134,26 @@ function GoalsPage() {
     void dispatch(loadTasks())
   }, [dispatch])
 
-  function openCreateDialog() {
-    setEditingGoal(null)
-    setTitle("")
-    setDescription("")
-    setStartDate(toLocalDateValue(new Date()))
-    setDueDate("")
+  function openGoalDialog(goal: Goal | null) {
+    const values = getGoalFormValues(goal, toLocalDateValue(new Date()))
+    setEditingGoal(goal)
+    setTitle(values.title)
+    setDescription(values.description)
+    setStartDate(values.startDate)
+    setDueDate(values.dueDate)
+    setTimeline(values.timeline)
+    setMotivation(values.motivation)
     setFormErrors({})
     setSaveError("")
     setIsDialogOpen(true)
   }
 
+  function openCreateDialog() {
+    openGoalDialog(null)
+  }
+
   function openEditDialog(goal: Goal) {
-    setEditingGoal(goal)
-    setTitle(goal.title)
-    setDescription(goal.description ?? "")
-    // Legacy goals may lack start_date; prefill without persisting until saved.
-    setStartDate(goal.start_date || toLocalDateValue(new Date()))
-    setDueDate(goal.due_date ?? "")
-    setFormErrors({})
-    setSaveError("")
-    setIsDialogOpen(true)
+    openGoalDialog(goal)
   }
 
   function toggleGoal(goalId: number) {
@@ -170,17 +176,22 @@ function GoalsPage() {
     else if (!isValidDateValue(startDate)) {
       nextErrors.start_date = "Enter a valid start date."
     }
+    if (!getGoalTimelineLabel(timeline)) {
+      nextErrors.timeline = "Choose a timeline."
+    }
     if (Object.keys(nextErrors).length > 0) {
       setFormErrors(nextErrors)
       return
     }
 
-    const payload: GoalWritePayload = {
-      title: cleanTitle,
-      description: description.trim(),
-      start_date: startDate,
-      due_date: dueDate || null
-    }
+    const payload: GoalWritePayload = buildGoalPayload({
+      title,
+      description,
+      startDate,
+      dueDate,
+      timeline,
+      motivation
+    })
 
     setIsSaving(true)
     setFormErrors({})
@@ -319,6 +330,11 @@ function GoalsPage() {
                   <div className="goal-card-copy">
                     <div className="goal-title-row">
                       <h2>{goal.title}</h2>
+                      {getGoalTimelineLabel(goal.timeline) && (
+                        <span className="goal-timeline">
+                          {getGoalTimelineLabel(goal.timeline)}
+                        </span>
+                      )}
                       {hasTasks && (
                         <span className="goal-task-count">
                           {goalTasks.length}{" "}
@@ -334,6 +350,12 @@ function GoalsPage() {
                     </div>
                     {goal.description && (
                       <p className="goal-description">{goal.description}</p>
+                    )}
+                    {goal.motivation && (
+                      <p className="goal-motivation">
+                        <span>Motivation behind it</span>
+                        {goal.motivation}
+                      </p>
                     )}
                     {(goal.start_date || goal.due_date) && (
                       <div className="goal-dates">
@@ -449,6 +471,41 @@ function GoalsPage() {
                 {formErrors.description && (
                   <span className="goals-field-error">
                     {formErrors.description}
+                  </span>
+                )}
+              </label>
+              <label className="goals-form-field">
+                Why does this goal matter to you? <span>(Optional)</span>
+                <textarea
+                  rows={3}
+                  value={motivation}
+                  placeholder="e.g. It will help me grow in my career."
+                  onChange={(event) => setMotivation(event.currentTarget.value)}
+                />
+                {formErrors.motivation && (
+                  <span className="goals-field-error">
+                    {formErrors.motivation}
+                  </span>
+                )}
+              </label>
+              <label className="goals-form-field">
+                Timeline
+                <select
+                  required
+                  value={timeline}
+                  onChange={(event) =>
+                    setTimeline(event.currentTarget.value as GoalTimeline)
+                  }
+                  aria-invalid={Boolean(formErrors.timeline)}>
+                  {GOAL_TIMELINE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.timeline && (
+                  <span className="goals-field-error">
+                    {formErrors.timeline}
                   </span>
                 )}
               </label>

@@ -26,24 +26,32 @@ describe("incomplete goal selector", () => {
       id: 1,
       title: "Active",
       start_date: "2026-10-01",
+      timeline: "short_term" as const,
+      motivation: "",
       status: "active" as const
     }
     const completedGoal = {
       id: 2,
       title: "Completed",
       start_date: "2026-10-01",
+      timeline: "short_term" as const,
+      motivation: "",
       status: "completed" as const
     }
     const archivedGoal = {
       id: 4,
       title: "Archived",
       start_date: "2026-10-01",
+      timeline: "short_term" as const,
+      motivation: "",
       status: "archived" as const
     }
     const taskCompletedGoal = {
       id: 3,
       title: "Task completed",
-      start_date: "2026-10-01"
+      start_date: "2026-10-01",
+      timeline: "short_term" as const,
+      motivation: ""
     }
     const state = {
       goals: {

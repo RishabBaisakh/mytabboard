@@ -4,12 +4,28 @@ import type { Task } from "./tasks"
 
 export type GoalStatus = "active" | "completed" | "archived"
 
+export type GoalTimeline = "short_term" | "mid_term" | "long_term"
+
+export const GOAL_TIMELINE_OPTIONS: { value: GoalTimeline; label: string }[] = [
+  { value: "short_term", label: "Short-term" },
+  { value: "mid_term", label: "Mid-term" },
+  { value: "long_term", label: "Long-term" }
+]
+
+export const DEFAULT_GOAL_TIMELINE: GoalTimeline = "short_term"
+
+export function getGoalTimelineLabel(value?: string | null) {
+  return GOAL_TIMELINE_OPTIONS.find((option) => option.value === value)?.label
+}
+
 export type Goal = {
   id: number
   title: string
   start_date: string
   due_date?: string | null
   description?: string
+  timeline: GoalTimeline
+  motivation: string
   status?: GoalStatus
 }
 
@@ -18,6 +34,8 @@ export type GoalWritePayload = {
   description?: string
   start_date: string
   due_date?: string | null
+  timeline: GoalTimeline
+  motivation?: string
 }
 
 export function isValidDateValue(value: string) {
