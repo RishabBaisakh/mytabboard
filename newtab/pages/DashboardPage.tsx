@@ -2,21 +2,18 @@ import {
   ArrowRight,
   Bell,
   Bot,
-  BriefcaseBusiness,
   CalendarDays,
-  CirclePlay,
   Clock3,
-  Code2,
   Lightbulb,
   ListChecks,
   ListPlus,
-  MessageCircle,
   Search,
   Sparkles,
   Target
 } from "lucide-react"
 import { Link } from "react-router-dom"
 
+import { ShortcutsWidget } from "../../components/ShortcutsWidget"
 import { WeatherWidget } from "../../components/WeatherWidget"
 import { useAppSelector } from "../../store/hooks"
 
@@ -42,13 +39,6 @@ const schedule = [
     done: false
   },
   { title: "Lunch break", start: "12:30 PM", end: "1:15 PM", done: false }
-]
-
-const quickLinks = [
-  { label: "GitHub", href: "https://github.com", icon: Code2 },
-  { label: "Twitter", href: "https://twitter.com", icon: MessageCircle },
-  { label: "YouTube", href: "https://youtube.com", icon: CirclePlay },
-  { label: "LinkedIn", href: "https://linkedin.com", icon: BriefcaseBusiness }
 ]
 
 const workspaceStats = [
@@ -290,32 +280,9 @@ function DashboardPage() {
               ))}
             </ul>
           </section>
-
-          <section
-            className="dashboard-panel"
-            aria-labelledby="quick-links-title">
-            <header className="panel-heading">
-              <div>
-                <h2 id="quick-links-title">Quick links</h2>
-                <p>Your favorite places</p>
-              </div>
-            </header>
-            <nav className="quick-links" aria-label="Quick links">
-              {quickLinks.map(({ label, href, icon: Icon }) => (
-                <a
-                  className="quick-link"
-                  href={href}
-                  key={label}
-                  target="_blank"
-                  rel="noreferrer">
-                  <Icon size={19} strokeWidth={1.8} aria-hidden="true" />
-                  <span>{label}</span>
-                </a>
-              ))}
-            </nav>
-          </section>
         </aside>
       </div>
+      <ShortcutsWidget />
     </section>
   )
 }
