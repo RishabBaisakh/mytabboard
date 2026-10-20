@@ -1,5 +1,16 @@
-import { CalendarDays, Check, ChevronDown, Plus } from "lucide-react"
+import { ArrowLeft, ArrowRight, Check, Plus } from "lucide-react"
 import React from "react"
+
+import {
+  dateForViewChange,
+  formatPlannerDay,
+  formatPlannerWeek,
+  getLocalDate,
+  getWeekStart,
+  navigateCalendarPeriod,
+  toLocalDateValue,
+  type PlannerView
+} from "./plannerCalendar"
 
 import "../../styles/pages/planner.css"
 
@@ -57,32 +68,42 @@ const weekTasks = [
 ]
 
 function PlannerPage() {
-  const [selectedView, setSelectedView] = React.useState("Day")
+  const [selectedView, setSelectedView] = React.useState<PlannerView>("Day")
   const [plannerTasks, setPlannerTasks] = React.useState(dayTasks)
   const [weeklyTasks, setWeeklyTasks] = React.useState(weekTasks)
-  const [selectedDate, setSelectedDate] = React.useState(() => {
-    const today = new Date()
-    today.setMinutes(today.getMinutes() - today.getTimezoneOffset())
-    return today.toISOString().slice(0, 10)
-  })
+  const [selectedDate, setSelectedDate] = React.useState(() =>
+    getLocalDate(new Date())
+  )
   const [isQuickAddOpen, setIsQuickAddOpen] = React.useState(false)
   const [newTaskTitle, setNewTaskTitle] = React.useState("")
   const [newTaskTime, setNewTaskTime] = React.useState("16:00")
-  const dateLabel = new Date(`${selectedDate}T00:00:00`).toLocaleDateString(
-    undefined,
-    {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-      year: "numeric"
-    }
-  )
-  const selectedDay = new Date(`${selectedDate}T00:00:00`)
-  const dayHeading = selectedDay.toLocaleDateString(undefined, {
+  const dayHeading = selectedDate.toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
-    day: "numeric"
+    day: "numeric",
+    year: "numeric"
   })
+  const dateLabel =
+    selectedView === "Day"
+      ? formatPlannerDay(selectedDate)
+      : formatPlannerWeek(selectedDate)
+
+  function navigatePeriod(direction: -1 | 1) {
+    setSelectedDate((currentDate) =>
+      navigateCalendarPeriod(currentDate, selectedView, direction)
+    )
+  }
+
+  function changeView(view: PlannerView) {
+    setSelectedDate((currentDate) =>
+      dateForViewChange(currentDate, selectedView, view)
+    )
+    setSelectedView(view)
+  }
+
+  function goToToday() {
+    setSelectedDate(getLocalDate(new Date()))
+  }
 
   function addTask(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -111,35 +132,60 @@ function PlannerPage() {
             Organize your day, week, and long-term goals.
           </p>
         </div>
-        <div className="planner-header-controls">
-          <label className="planner-date-control" title="Choose date">
-            <CalendarDays size={18} strokeWidth={1.8} aria-hidden="true" />
-            <time dateTime={selectedDate}>{dateLabel}</time>
-            <ChevronDown size={16} strokeWidth={1.8} aria-hidden="true" />
-            <input
-              className="planner-date-input"
-              type="date"
-              aria-label="Choose date"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.currentTarget.value)}
-            />
-          </label>
-          <div
-            className="planner-view-switcher"
-            role="group"
-            aria-label="Planner view">
-            {["Day", "Week", "Month"].map((view) => (
-              <button
-                key={view}
-                type="button"
-                aria-pressed={selectedView === view}
-                onClick={() => setSelectedView(view)}>
-                {view}
-              </button>
-            ))}
-          </div>
-        </div>
       </header>
+
+      <nav className="planner-calendar-nav" aria-label="Calendar navigation">
+        <div
+          className="planner-view-switcher"
+          role="group"
+          aria-label="Calendar view">
+          {(["Day", "Week"] as const).map((view) => (
+            <button
+              key={view}
+              type="button"
+              aria-pressed={selectedView === view}
+              onClick={() => changeView(view)}>
+              {view}
+            </button>
+          ))}
+        </div>
+        <div className="planner-date-navigation">
+          <button
+            className="planner-date-arrow"
+            type="button"
+            aria-label={
+              selectedView === "Day" ? "Previous day" : "Previous week"
+            }
+            title={selectedView === "Day" ? "Previous day" : "Previous week"}
+            onClick={() => navigatePeriod(-1)}>
+            <ArrowLeft size={18} aria-hidden="true" />
+          </button>
+          <time
+            className="planner-date-label"
+            dateTime={toLocalDateValue(
+              selectedView === "Week"
+                ? getWeekStart(selectedDate)
+                : selectedDate
+            )}
+            aria-live="polite">
+            {dateLabel}
+          </time>
+          <button
+            className="planner-date-arrow"
+            type="button"
+            aria-label={selectedView === "Day" ? "Next day" : "Next week"}
+            title={selectedView === "Day" ? "Next day" : "Next week"}
+            onClick={() => navigatePeriod(1)}>
+            <ArrowRight size={18} aria-hidden="true" />
+          </button>
+        </div>
+        <button
+          className="planner-today-button"
+          type="button"
+          onClick={goToToday}>
+          Today
+        </button>
+      </nav>
 
       <div className="planner-actions">
         <button
