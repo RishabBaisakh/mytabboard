@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { Link } from "react-router-dom"
 
+import { WeatherWidget } from "../../components/WeatherWidget"
 import { useAppSelector } from "../../store/hooks"
 
 import "../../styles/pages/dashboard.css"
@@ -135,6 +136,7 @@ function DashboardPage() {
           />
         </form>
         <div className="dashboard-tools">
+          <WeatherWidget />
           <time className="dashboard-date" dateTime={currentDate.toISOString()}>
             {dateLabel}
           </time>
