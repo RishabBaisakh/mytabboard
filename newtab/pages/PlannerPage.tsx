@@ -1,6 +1,17 @@
 import { ArrowLeft, ArrowRight, Check, Plus } from "lucide-react"
 import React from "react"
 
+import { tasksService } from "../../services/tasks"
+import { calculateTaskSchedule } from "../../services/taskScheduling"
+import { useAppDispatch, useAppSelector } from "../../store/hooks"
+import {
+  loadTasks,
+  selectAllTasks,
+  selectTasksError,
+  selectTasksStatus,
+  taskCreated,
+  taskUpdated
+} from "../../store/tasksSlice"
 import {
   dateForViewChange,
   formatPlannerDay,
@@ -11,72 +22,30 @@ import {
   toLocalDateValue,
   type PlannerView
 } from "./plannerCalendar"
+import { getDayTimelineItems, getWeekItems } from "./plannerTasks"
 
 import "../../styles/pages/planner.css"
 
-const dayTasks = [
-  {
-    time: "8:30 AM",
-    title: "Plan the day",
-    detail: "Set your priorities",
-    tone: "blue"
-  },
-  {
-    time: "10:00 AM",
-    title: "Product design sync",
-    detail: "Review the latest concepts",
-    tone: "teal"
-  },
-  {
-    time: "1:00 PM",
-    title: "Focus time",
-    detail: "Work on dashboard updates",
-    tone: "amber"
-  },
-  {
-    time: "3:30 PM",
-    title: "Team check-in",
-    detail: "Share progress and next steps",
-    tone: "coral"
-  },
-  {
-    time: "10:00 AM",
-    title: "Product design sync",
-    detail: "Review the latest concepts",
-    tone: "teal"
-  },
-  {
-    time: "1:00 PM",
-    title: "Focus time",
-    detail: "Work on dashboard updates",
-    tone: "amber"
-  },
-  {
-    time: "3:30 PM",
-    title: "Team check-in",
-    detail: "Share progress and next steps",
-    tone: "coral"
-  }
-]
-
-const weekTasks = [
-  { day: "MON", title: "Review weekly priorities", done: true },
-  { day: "TUE", title: "Prepare product design concepts", done: false },
-  { day: "WED", title: "Meet with the product team", done: true },
-  { day: "THU", title: "Finish dashboard updates", done: false },
-  { day: "FRI", title: "Share the weekly progress recap", done: false }
-]
-
 function PlannerPage() {
   const [selectedView, setSelectedView] = React.useState<PlannerView>("Day")
-  const [plannerTasks, setPlannerTasks] = React.useState(dayTasks)
-  const [weeklyTasks, setWeeklyTasks] = React.useState(weekTasks)
+  const dispatch = useAppDispatch()
+  const tasks = useAppSelector(selectAllTasks)
+  const tasksStatus = useAppSelector(selectTasksStatus)
+  const tasksError = useAppSelector(selectTasksError)
+  const isLoading = tasksStatus === "idle" || tasksStatus === "loading"
+  const [actionError, setActionError] = React.useState("")
+  const [isAdding, setIsAdding] = React.useState(false)
+  const [pendingIds, setPendingIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
   const [selectedDate, setSelectedDate] = React.useState(() =>
     getLocalDate(new Date())
   )
   const [isQuickAddOpen, setIsQuickAddOpen] = React.useState(false)
   const [newTaskTitle, setNewTaskTitle] = React.useState("")
   const [newTaskTime, setNewTaskTime] = React.useState("16:00")
+  const timelineItems = getDayTimelineItems(tasks, selectedDate)
+  const weekItems = getWeekItems(tasks, selectedDate)
   const dayHeading = selectedDate.toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
@@ -105,22 +74,64 @@ function PlannerPage() {
     setSelectedDate(getLocalDate(new Date()))
   }
 
-  function addTask(event: React.FormEvent<HTMLFormElement>) {
+  React.useEffect(() => {
+    void dispatch(loadTasks())
+  }, [dispatch])
+
+  async function addTask(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const title = newTaskTitle.trim()
-    if (!title) return
+    if (!title || isAdding) return
 
-    const time = new Date(`1970-01-01T${newTaskTime}:00`).toLocaleTimeString(
-      undefined,
-      { hour: "numeric", minute: "2-digit" }
-    )
-    setPlannerTasks((tasks) => [
-      ...tasks,
-      { time, title, detail: "Added to your schedule", tone: "blue" }
-    ])
-    setNewTaskTitle("")
-    setNewTaskTime("16:00")
-    setIsQuickAddOpen(false)
+    setIsAdding(true)
+    setActionError("")
+    try {
+      const schedule = calculateTaskSchedule(
+        toLocalDateValue(selectedDate),
+        newTaskTime,
+        60
+      )
+      const created = await tasksService.create({
+        title,
+        description: "",
+        status: "todo",
+        priority: "medium",
+        goal: null,
+        ...schedule
+      })
+      dispatch(taskCreated(created))
+      setNewTaskTitle("")
+      setNewTaskTime("16:00")
+      setIsQuickAddOpen(false)
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to add this task."
+      )
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
+  async function toggleDone(id: string, done: boolean) {
+    if (pendingIds.has(id)) return
+    setPendingIds((current) => new Set(current).add(id))
+    setActionError("")
+    try {
+      const updated = await tasksService.update(id, {
+        status: done ? "todo" : "completed"
+      })
+      dispatch(taskUpdated(updated))
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Unable to update this task."
+      )
+    } finally {
+      setPendingIds((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+    }
   }
 
   return (
@@ -205,20 +216,42 @@ function PlannerPage() {
             <p>Daily schedule</p>
             <h2 id="planner-day-title">{dayHeading}</h2>
           </header>
-          <ol className="planner-timeline">
-            {plannerTasks.map(({ time, title, detail, tone }) => (
-              <li
-                className={`planner-timeline-item tone-${tone}`}
-                key={`${time}-${title}`}>
-                <time>{time}</time>
-                <span className="planner-timeline-bar" aria-hidden="true" />
-                <div className="planner-timeline-copy">
-                  <h3>{title}</h3>
-                  <span>{detail}</span>
-                </div>
-              </li>
-            ))}
-          </ol>
+          {isLoading ? (
+            <p className="planner-state-message" role="status">
+              Loading tasks...
+            </p>
+          ) : tasksError ? (
+            <div className="planner-state-message" role="alert">
+              <p>{tasksError}</p>
+              <button type="button" onClick={() => void dispatch(loadTasks())}>
+                Try again
+              </button>
+            </div>
+          ) : timelineItems.length === 0 ? (
+            <p className="planner-state-message">
+              No tasks scheduled for this day.
+            </p>
+          ) : (
+            <ol className="planner-timeline">
+              {timelineItems.map(
+                ({ id, time, timeRange, title, detail, tone }) => (
+                  <li className={`planner-timeline-item tone-${tone}`} key={id}>
+                    <time title={timeRange}>{time}</time>
+                    <span className="planner-timeline-bar" aria-hidden="true" />
+                    <div className="planner-timeline-copy">
+                      <h3>{title}</h3>
+                      <span>{detail}</span>
+                    </div>
+                  </li>
+                )
+              )}
+            </ol>
+          )}
+          {actionError && (
+            <p className="planner-state-message" role="alert">
+              {actionError}
+            </p>
+          )}
         </section>
 
         <section
@@ -227,33 +260,36 @@ function PlannerPage() {
           <header className="planner-section-header planner-week-header">
             <h2 id="planner-week-title">This Week</h2>
           </header>
-          <ul className="planner-week-list">
-            {weeklyTasks.map(({ day, title, done }) => (
-              <li className="planner-week-task" key={day}>
-                <button
-                  className="planner-week-check"
-                  type="button"
-                  role="checkbox"
-                  aria-checked={done}
-                  aria-label={
-                    done ? `Mark ${title} incomplete` : `Mark ${title} complete`
-                  }
-                  onClick={() =>
-                    setWeeklyTasks((tasks) =>
-                      tasks.map((task) =>
-                        task.day === day ? { ...task, done: !task.done } : task
-                      )
-                    )
-                  }>
-                  {done && (
-                    <Check size={12} strokeWidth={2.5} aria-hidden="true" />
-                  )}
-                </button>
-                <span>{day}</span>
-                <p title={title}>{title}</p>
-              </li>
-            ))}
-          </ul>
+          {isLoading || tasksError ? null : weekItems.length === 0 ? (
+            <p className="planner-state-message">
+              No tasks scheduled for this week.
+            </p>
+          ) : (
+            <ul className="planner-week-list">
+              {weekItems.map(({ id, day, title, done }) => (
+                <li className="planner-week-task" key={id}>
+                  <button
+                    className="planner-week-check"
+                    type="button"
+                    role="checkbox"
+                    aria-checked={done}
+                    disabled={pendingIds.has(id)}
+                    aria-label={
+                      done
+                        ? `Mark ${title} incomplete`
+                        : `Mark ${title} complete`
+                    }
+                    onClick={() => void toggleDone(id, done)}>
+                    {done && (
+                      <Check size={12} strokeWidth={2.5} aria-hidden="true" />
+                    )}
+                  </button>
+                  <span>{day}</span>
+                  <p title={title}>{title}</p>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </div>
 
@@ -292,7 +328,9 @@ function PlannerPage() {
                 <button type="button" onClick={() => setIsQuickAddOpen(false)}>
                   Cancel
                 </button>
-                <button type="submit">Add task</button>
+                <button type="submit" disabled={isAdding}>
+                  Add task
+                </button>
               </div>
             </form>
           </section>

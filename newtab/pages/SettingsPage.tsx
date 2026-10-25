@@ -8,13 +8,26 @@ import {
   UserRound
 } from "lucide-react"
 import React from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 
+import { authService } from "../../services/auth"
 import "../../styles/pages/settings.css"
 
 function SettingsPage() {
+  const navigate = useNavigate()
   const [theme, setTheme] = React.useState("System")
   const [startPage, setStartPage] = React.useState("Dashboard")
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false)
+
+  async function handleLogout() {
+    setIsLoggingOut(true)
+    try {
+      await authService.logout()
+      navigate("/login", { replace: true })
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <section className="settings-page" aria-labelledby="settings-title">
@@ -103,10 +116,14 @@ function SettingsPage() {
         </section>
       </div>
       <div className="settings-page-footer">
-        <Link className="settings-logout" to="/login">
+        <button
+          className="settings-logout"
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}>
           <LogOut size={17} strokeWidth={1.9} aria-hidden="true" />
           Log out
-        </Link>
+        </button>
       </div>
     </section>
   )

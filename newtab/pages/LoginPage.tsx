@@ -1,13 +1,21 @@
 import { useState, type FormEvent } from "react"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 
 import { GoogleSignInButton } from "../../components/GoogleSignInButton"
 import { authService } from "../../services/auth"
 
 function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [feedback, setFeedback] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const from = location.state?.from
+  const redirectTo =
+    typeof from?.pathname === "string" &&
+    from.pathname.startsWith("/") &&
+    !from.pathname.startsWith("//")
+      ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
+      : "/"
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -20,7 +28,7 @@ function LoginPage() {
         email: String(form.get("email") ?? ""),
         password: String(form.get("password") ?? "")
       })
-      navigate("/", { replace: true })
+      navigate(redirectTo, { replace: true })
     } catch (error) {
       console.error("Login error:", error)
       setFeedback(
@@ -37,7 +45,7 @@ function LoginPage() {
 
     try {
       await authService.loginWithGoogle()
-      navigate("/", { replace: true })
+      navigate(redirectTo, { replace: true })
     } catch (error) {
       setFeedback(
         error instanceof Error

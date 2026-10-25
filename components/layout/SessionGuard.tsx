@@ -22,12 +22,15 @@ export function SessionGuard({
   onboardingOnly = false
 }: SessionGuardProps) {
   const location = useLocation()
+  const guardMode = `${guestOnly}:${onboardingOnly}`
   const [attempt, setAttempt] = useState(0)
   const [status, setStatus] = useState<SessionStatus>("checking")
+  const [statusMode, setStatusMode] = useState(guardMode)
   const [errorMessage, setErrorMessage] = useState("")
 
   useEffect(() => {
     let isCurrent = true
+    setStatusMode(guardMode)
     setStatus("checking")
     setErrorMessage("")
 
@@ -65,13 +68,24 @@ export function SessionGuard({
     return () => {
       isCurrent = false
     }
-  }, [attempt])
+  }, [attempt, guardMode])
 
-  if (status === "checking") {
+  if (statusMode !== guardMode || status === "checking") {
     return (
       <main className="auth-layout">
-        <section className="auth-card" role="status" aria-live="polite">
-          Checking your session...
+        <section
+          className="auth-card auth-loading"
+          role="status"
+          aria-live="polite">
+          <span className="auth-spinner" aria-hidden="true" />
+          <p className="auth-loading-text">
+            Checking your session
+            <span className="auth-loading-dots" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </p>
         </section>
       </main>
     )

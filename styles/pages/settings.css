@@ -158,10 +158,14 @@
 	gap: 9px;
 	min-height: 38px;
 	padding: 0 4px;
+	border: 0;
+	background: transparent;
 	color: #c9434d;
+	font: inherit;
 	font-size: 13px;
 	font-weight: 600;
 	text-decoration: none;
+	cursor: pointer;
 }
 
 .settings-logout:hover {
