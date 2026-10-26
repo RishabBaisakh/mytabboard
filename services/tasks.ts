@@ -19,6 +19,10 @@ export type Task = {
   updated_at: string
 }
 
+export function isTaskCompleted(task: Pick<Task, "status">) {
+  return task.status === "completed"
+}
+
 export type TaskWriteFields = Pick<
   Task,
   | "title"

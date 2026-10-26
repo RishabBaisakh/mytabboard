@@ -5,65 +5,24 @@ import {
   CalendarDays,
   Clock3,
   Lightbulb,
-  ListChecks,
   ListPlus,
   Search,
   Sparkles,
   Target
 } from "lucide-react"
+import React from "react"
 import { Link } from "react-router-dom"
 
 import { ShortcutsWidget } from "../../components/ShortcutsWidget"
+import { StepProgress } from "../../components/StepProgress"
 import { WeatherWidget } from "../../components/WeatherWidget"
-import { useAppSelector } from "../../store/hooks"
+import { isTaskCompleted, tasksService } from "../../services/tasks"
+import { useAppDispatch, useAppSelector } from "../../store/hooks"
+import { taskUpdated } from "../../store/tasksSlice"
+import { getScheduledTasks } from "./plannerTasks"
+import { useTodayTasks } from "./useTodayTasks"
 
 import "../../styles/pages/dashboard.css"
-
-const schedule = [
-  {
-    title: "Review daily priorities",
-    start: "9:00 AM",
-    end: "9:30 AM",
-    done: true
-  },
-  {
-    title: "Product design sync",
-    start: "10:00 AM",
-    end: "10:45 AM",
-    done: false
-  },
-  {
-    title: "Focus time: dashboard",
-    start: "11:00 AM",
-    end: "12:30 PM",
-    done: false
-  },
-  { title: "Lunch break", start: "12:30 PM", end: "1:15 PM", done: false }
-]
-
-const workspaceStats = [
-  {
-    label: "Today's tasks",
-    value: "3/5",
-    progress: 60,
-    icon: ListChecks,
-    tone: "blue"
-  },
-  {
-    label: "This week",
-    value: "6/10",
-    progress: 60,
-    icon: CalendarDays,
-    tone: "teal"
-  },
-  {
-    label: "Daily goal",
-    value: "75%",
-    progress: 75,
-    icon: Target,
-    tone: "amber"
-  }
-]
 
 const quickActions = [
   {
@@ -91,7 +50,46 @@ const quickActions = [
   }
 ]
 
+function formatTime(value: string) {
+  return new Date(value).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit"
+  })
+}
+
 function DashboardPage() {
+  const dispatch = useAppDispatch()
+  const today = useTodayTasks()
+  const [pendingIds, setPendingIds] = React.useState<Set<string>>(
+    () => new Set()
+  )
+  const [toggleError, setToggleError] = React.useState("")
+  const todayItems = getScheduledTasks(today.tasks).map(({ task }) => task)
+  const completedCount = todayItems.filter(isTaskCompleted).length
+
+  async function toggleTask(id: string, complete: boolean) {
+    if (pendingIds.has(id)) return
+    setPendingIds((current) => new Set(current).add(id))
+    setToggleError("")
+    try {
+      const updated = await tasksService.update(id, {
+        status: complete ? "completed" : "todo"
+      })
+      today.replaceTask(updated)
+      dispatch(taskUpdated(updated))
+    } catch (error) {
+      setToggleError(
+        error instanceof Error ? error.message : "Unable to update this task."
+      )
+    } finally {
+      setPendingIds((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
   const displayName = useAppSelector(
     (state) => state.profile.profile?.display_name
   )
@@ -156,34 +154,45 @@ function DashboardPage() {
         <section
           className="dashboard-primary"
           aria-label="Main dashboard workspace">
-          <div className="workspace-stats" aria-label="Progress overview">
-            {workspaceStats.map(
-              ({ label, value, progress, icon: Icon, tone }) => (
-                <article className={`workspace-stat stat-${tone}`} key={label}>
-                  <div className="workspace-stat-icon-wrapper">
-                    <span className="workspace-stat-icon" aria-hidden="true">
-                      <Icon size={18} strokeWidth={1.9} />
-                    </span>
-                  </div>
-                  <h2>{label}</h2>
-                  <div
-                    className="workspace-stat-progress-wrapper"
-                    aria-hidden="true">
-                    <p className="workspace-stat-value">{value}</p>
-                  </div>
-                  <div
-                    className="workspace-progress"
-                    role="progressbar"
-                    aria-label={label}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={progress}>
-                    <span style={{ width: `${progress}%` }} />
-                  </div>
-                </article>
-              )
+          <section
+            className="today-progress"
+            aria-labelledby="today-progress-title">
+            <header className="today-progress-header">
+              <h2 id="today-progress-title">Today&apos;s progress</h2>
+              {today.status === "succeeded" && todayItems.length > 0 && (
+                <p>
+                  {completedCount} of {todayItems.length} tasks complete
+                </p>
+              )}
+            </header>
+            {today.status === "loading" && today.tasks.length === 0 ? (
+              <div
+                className="today-progress-skeleton"
+                role="status"
+                aria-label="Loading today's progress"
+              />
+            ) : today.status === "failed" ? (
+              <div className="today-progress-message" role="alert">
+                <span>{today.error}</span>
+                <button type="button" onClick={today.reload}>
+                  Try again
+                </button>
+              </div>
+            ) : todayItems.length === 0 ? (
+              <p className="today-progress-message">
+                No tasks scheduled for today.
+              </p>
+            ) : (
+              <StepProgress
+                label="Today's task completion"
+                steps={todayItems.map((task) => ({
+                  id: task.id,
+                  label: task.title,
+                  complete: isTaskCompleted(task)
+                }))}
+              />
             )}
-          </div>
+          </section>
           <div className="workspace-lower">
             <section className="planner-promo" aria-labelledby="planner-title">
               <div className="planner-promo-copy">
@@ -257,28 +266,51 @@ function DashboardPage() {
               <CalendarDays size={19} aria-hidden="true" />
             </header>
 
-            <ul className="schedule-list">
-              {schedule.map((item) => (
-                <li className="schedule-item" key={item.title}>
-                  <label className="schedule-check">
-                    <input
-                      type="checkbox"
-                      defaultChecked={item.done}
-                      aria-label={`${item.title}: ${item.done ? "complete" : "incomplete"}`}
-                    />
-                  </label>
-                  <div className="schedule-details">
-                    <p className="schedule-title">{item.title}</p>
-                    <div className="schedule-meta">
-                      <span>
-                        <Clock3 size={13} aria-hidden="true" />
-                        {item.start} – {item.end}
-                      </span>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {today.status === "loading" && today.tasks.length === 0 ? (
+              <p className="schedule-state" role="status">
+                Loading tasks...
+              </p>
+            ) : today.status === "failed" ? (
+              <p className="schedule-state" role="alert">
+                {today.error}
+              </p>
+            ) : todayItems.length === 0 ? (
+              <p className="schedule-state">Nothing scheduled for today.</p>
+            ) : (
+              <ul className="schedule-list">
+                {todayItems.map((task) => {
+                  const done = isTaskCompleted(task)
+                  return (
+                    <li className="schedule-item" key={task.id}>
+                      <label className="schedule-check">
+                        <input
+                          type="checkbox"
+                          checked={done}
+                          disabled={pendingIds.has(task.id)}
+                          onChange={() => void toggleTask(task.id, !done)}
+                          aria-label={`${task.title}: ${done ? "complete" : "incomplete"}`}
+                        />
+                      </label>
+                      <div className="schedule-details">
+                        <p className="schedule-title">{task.title}</p>
+                        <div className="schedule-meta">
+                          <span>
+                            <Clock3 size={13} aria-hidden="true" />
+                            {formatTime(task.scheduled_start)} –{" "}
+                            {formatTime(task.scheduled_end)}
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+            {toggleError && (
+              <p className="schedule-state" role="alert">
+                {toggleError}
+              </p>
+            )}
           </section>
         </aside>
       </div>

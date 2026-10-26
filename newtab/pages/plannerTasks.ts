@@ -1,4 +1,8 @@
-import type { Task, TaskStatus } from "../../services/tasks"
+import {
+  isTaskCompleted,
+  type Task,
+  type TaskStatus
+} from "../../services/tasks"
 import { addCalendarDays, getLocalDate, getWeekStart } from "./plannerCalendar"
 
 export type PlannerTone = "blue" | "teal" | "amber" | "coral"
@@ -77,7 +81,7 @@ export function getDayTimelineItems(tasks: Task[]): PlannerTimelineItem[] {
     title: task.title,
     detail: task.description || STATUS_LABELS[task.status],
     tone: STATUS_TONES[task.status],
-    done: task.status === "completed"
+    done: isTaskCompleted(task)
   }))
 }
 
@@ -107,7 +111,7 @@ export function getWeekItems(tasks: Task[], date: Date): PlannerWeekItem[] {
           .toLocaleDateString("en-US", { weekday: "short" })
           .toUpperCase(),
         title: task.title,
-        done: task.status === "completed"
+        done: isTaskCompleted(task)
       })
       day = addCalendarDays(day, 1)
     } while (day <= last)
