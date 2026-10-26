@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit"
 
+import goalCategoriesReducer from "./goalCategoriesSlice"
 import goalsReducer from "./goalsSlice"
 import profileReducer from "./profileSlice"
 import tasksReducer from "./tasksSlice"
@@ -8,6 +9,7 @@ export const store = configureStore({
   reducer: {
     profile: profileReducer,
     goals: goalsReducer,
+    goalCategories: goalCategoriesReducer,
     tasks: tasksReducer
   }
 })

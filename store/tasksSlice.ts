@@ -6,6 +6,7 @@ import {
 
 import { tasksService } from "../services/tasks"
 import type { Task } from "../services/tasks"
+import { removeGoal } from "./goalsSlice"
 
 export type TasksState = {
   items: Task[]
@@ -58,6 +59,12 @@ const tasksSlice = createSlice({
       .addCase(loadTasks.fulfilled, (state, action) => {
         state.items = action.payload
         state.status = "succeeded"
+      })
+      // The backend keeps a deleted goal's tasks and nulls their goal.
+      .addCase(removeGoal.fulfilled, (state, action) => {
+        for (const task of state.items) {
+          if (task.goal === action.payload) task.goal = null
+        }
       })
       .addCase(loadTasks.rejected, (state, action) => {
         if (action.meta.condition) return

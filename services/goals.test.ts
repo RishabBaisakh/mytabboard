@@ -182,3 +182,97 @@ describe("goals service", () => {
     }
   })
 })
+
+describe("goal categories and category filter", () => {
+  function setup(data: unknown = []) {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        void init
+        return response(data)
+      }
+    )
+    const service = createGoalsService(
+      new ApiClient(
+        "http://127.0.0.1:8000",
+        new MemoryTokenStorage(),
+        fetchMock as unknown as typeof fetch
+      )
+    )
+    return { fetchMock, service }
+  }
+
+  function lastCall(fetchMock: ReturnType<typeof setup>["fetchMock"]) {
+    const [url, init] = fetchMock.mock.calls.at(-1)!
+    return { url: String(url), init: init as RequestInit }
+  }
+
+  it("fetches categories with the bearer token", async () => {
+    const { fetchMock, service } = setup([
+      { key: "personal_life", name: "Personal Life", description: "d" }
+    ])
+    await expect(service.getGoalCategories()).resolves.toHaveLength(1)
+    const { url, init } = lastCall(fetchMock)
+    expect(url).toBe("http://127.0.0.1:8000/api/v1/goals/categories/")
+    expect((init.headers as Headers).get("Authorization")).toContain(
+      "test-access"
+    )
+  })
+
+  it("lists goals with and without the category param", async () => {
+    const { fetchMock, service } = setup()
+    await service.list()
+    expect(lastCall(fetchMock).url).toBe("http://127.0.0.1:8000/api/v1/goals/")
+    await service.list({ category: null })
+    expect(lastCall(fetchMock).url).toBe("http://127.0.0.1:8000/api/v1/goals/")
+    await service.list({ category: "travel_experiences" })
+    expect(lastCall(fetchMock).url).toBe(
+      "http://127.0.0.1:8000/api/v1/goals/?category=travel_experiences"
+    )
+  })
+
+  it("sends category keys and preserves explicit null on write", async () => {
+    const { fetchMock, service } = setup({ id: 1 })
+    const base = {
+      title: "Plan",
+      start_date: "2026-11-02",
+      timeline: "short_term" as const
+    }
+    await service.create({ ...base, category: "financial_life" })
+    expect(JSON.parse(String(lastCall(fetchMock).init.body))).toMatchObject({
+      category: "financial_life"
+    })
+    await service.update(1, { ...base, category: null })
+    const body = JSON.parse(String(lastCall(fetchMock).init.body))
+    expect(body).toHaveProperty("category", null)
+    expect(lastCall(fetchMock).init.method).toBe("PATCH")
+    await service.update(1, base)
+    expect(
+      JSON.parse(String(lastCall(fetchMock).init.body))
+    ).not.toHaveProperty("category")
+  })
+})
+
+describe("deleteGoal", () => {
+  it("sends an authenticated DELETE and tolerates the empty 204 body", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        void init
+        return new Response(null, { status: 204 })
+      }
+    )
+    const service = createGoalsService(
+      new ApiClient(
+        "http://127.0.0.1:8000",
+        new MemoryTokenStorage(),
+        fetchMock as unknown as typeof fetch
+      )
+    )
+    await expect(service.deleteGoal(7)).resolves.toBeUndefined()
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(String(url)).toBe("http://127.0.0.1:8000/api/v1/goals/7/")
+    expect(init?.method).toBe("DELETE")
+    expect((init?.headers as Headers).get("Authorization")).toContain(
+      "test-access"
+    )
+  })
+})

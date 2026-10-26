@@ -57,7 +57,9 @@ describe("incomplete goal selector", () => {
       goals: {
         items: [activeGoal, completedGoal, archivedGoal, taskCompletedGoal],
         status: "succeeded" as const,
-        error: null
+        error: null,
+        category: null,
+        unfilteredCount: null
       },
       tasks: { items: tasks, status: "succeeded" as const, error: null }
     }

@@ -3,10 +3,14 @@ import {
   ChevronDown,
   Pencil,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from "lucide-react"
 import { useEffect, useState, type FormEvent } from "react"
 
+import { CategoryGrid } from "../../components/goals/CategoryGrid"
+import { ConfirmDialog } from "../../components/goals/ConfirmDialog"
+import { GoalCategoryBadge } from "../../components/goals/GoalCategoryBadge"
 import { ApiError } from "../../services/api"
 import { buildGoalPayload, getGoalFormValues } from "../../services/goalForm"
 import {
@@ -22,12 +26,21 @@ import {
 } from "../../services/goals"
 import { tasksService, type Task } from "../../services/tasks"
 import {
+  loadGoalCategories,
+  selectGoalCategories,
+  selectGoalCategoriesError,
+  selectGoalCategoriesStatus
+} from "../../store/goalCategoriesSlice"
+import {
   goalCreated,
   goalUpdated,
   loadGoals,
+  removeGoal,
   selectAllGoals,
+  selectGoalsCategory,
   selectGoalsError,
-  selectGoalsStatus
+  selectGoalsStatus,
+  selectGoalsUnfilteredCount
 } from "../../store/goalsSlice"
 import { useAppDispatch, useAppSelector } from "../../store/hooks"
 import {
@@ -112,6 +125,13 @@ function GoalsPage() {
     tasksStatus === "idle" ||
     tasksStatus === "loading"
   const loadError = goalsError || tasksError || ""
+  const categories = useAppSelector(selectGoalCategories)
+  const categoriesStatus = useAppSelector(selectGoalCategoriesStatus)
+  const categoriesError = useAppSelector(selectGoalCategoriesError)
+  const selectedCategory = useAppSelector(selectGoalsCategory)
+  const unfilteredCount = useAppSelector(selectGoalsUnfilteredCount)
+  const categoriesReady = categoriesStatus === "succeeded"
+  const [category, setCategory] = useState<string | null>(null)
   const [filter, setFilter] = useState<GoalFilter>("Active")
   const [expandedGoals, setExpandedGoals] = useState<Set<number>>(
     () => new Set()
@@ -128,14 +148,32 @@ function GoalsPage() {
   const [saveError, setSaveError] = useState("")
   const [saveMessage, setSaveMessage] = useState("")
   const [isSaving, setIsSaving] = useState(false)
+  const [goalToDelete, setGoalToDelete] = useState<Goal | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
 
   useEffect(() => {
-    void dispatch(loadGoals())
+    void dispatch(loadGoals(selectedCategory))
     void dispatch(loadTasks())
+    void dispatch(loadGoalCategories())
+    // Only on mount: later category changes are dispatched by the filter handler.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch])
 
-  function openGoalDialog(goal: Goal | null) {
-    const values = getGoalFormValues(goal, toLocalDateValue(new Date()))
+  function changeCategoryFilter(value: string) {
+    void dispatch(loadGoals(value || null))
+  }
+
+  function openGoalDialog(
+    goal: Goal | null,
+    presetCategory: string | null = null
+  ) {
+    const values = getGoalFormValues(
+      goal,
+      toLocalDateValue(new Date()),
+      presetCategory
+    )
+    setCategory(values.category)
     setEditingGoal(goal)
     setTitle(values.title)
     setDescription(values.description)
@@ -148,12 +186,38 @@ function GoalsPage() {
     setIsDialogOpen(true)
   }
 
-  function openCreateDialog() {
-    openGoalDialog(null)
+  function openCreateDialog(presetCategory: string | null = null) {
+    openGoalDialog(null, presetCategory)
   }
 
   function openEditDialog(goal: Goal) {
     openGoalDialog(goal)
+  }
+
+  function closeDeleteDialog() {
+    if (isDeleting) return
+    setGoalToDelete(null)
+    setDeleteError("")
+  }
+
+  async function confirmDelete() {
+    if (!goalToDelete || isDeleting) return
+    setIsDeleting(true)
+    setDeleteError("")
+    setSaveMessage("")
+    try {
+      await dispatch(removeGoal(goalToDelete.id)).unwrap()
+      setSaveMessage("Goal deleted.")
+      setGoalToDelete(null)
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "Unable to delete this goal. Please try again."
+      )
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   function toggleGoal(goalId: number) {
@@ -184,14 +248,18 @@ function GoalsPage() {
       return
     }
 
-    const payload: GoalWritePayload = buildGoalPayload({
-      title,
-      description,
-      startDate,
-      dueDate,
-      timeline,
-      motivation
-    })
+    const payload: GoalWritePayload = buildGoalPayload(
+      {
+        title,
+        description,
+        startDate,
+        dueDate,
+        timeline,
+        motivation,
+        category
+      },
+      editingGoal ? editingGoal.category ?? null : undefined
+    )
 
     setIsSaving(true)
     setFormErrors({})
@@ -240,7 +308,7 @@ function GoalsPage() {
         <button
           className="goals-add-button"
           type="button"
-          onClick={openCreateDialog}>
+          onClick={() => openCreateDialog()}>
           <Plus size={17} aria-hidden="true" />
           Add Goal
         </button>
@@ -258,6 +326,24 @@ function GoalsPage() {
           </button>
         ))}
       </div>
+
+      {categoriesReady && unfilteredCount !== 0 && (
+        <label className="goals-category-filter">
+          Category
+          <select
+            value={selectedCategory ?? ""}
+            onChange={(event) =>
+              changeCategoryFilter(event.currentTarget.value)
+            }>
+            <option value="">All categories</option>
+            {categories.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       {saveMessage && (
         <p className="goals-feedback" role="status">
@@ -283,10 +369,51 @@ function GoalsPage() {
             Try again
           </button>
         </div>
+      ) : goals.length === 0 &&
+        selectedCategory !== null &&
+        unfilteredCount !== 0 ? (
+        <div className="goals-empty-state" role="status">
+          <p>
+            No goals in{" "}
+            {categories.find((option) => option.key === selectedCategory)
+              ?.name ?? "this category"}{" "}
+            yet.
+          </p>
+          <button
+            className="goals-retry-button"
+            type="button"
+            onClick={() => changeCategoryFilter("")}>
+            Show all goals
+          </button>
+        </div>
+      ) : goals.length === 0 && categoriesReady && categories.length > 0 ? (
+        <section
+          className="goals-category-empty"
+          aria-labelledby="goals-category-empty-title">
+          <h2 id="goals-category-empty-title">Start with a life area</h2>
+          <p>Pick an area to create your first goal.</p>
+          <CategoryGrid
+            categories={categories}
+            selectedKey={null}
+            onSelect={(key) => openCreateDialog(key)}
+          />
+        </section>
       ) : goals.length === 0 ? (
-        <p className="goals-empty-state">
-          No goals yet. Add a goal to get started.
-        </p>
+        <div className="goals-empty-state">
+          <p>No goals yet. Add a goal to get started.</p>
+          {categoriesStatus === "failed" && (
+            <div className="goals-load-error" role="alert">
+              <p>{categoriesError}</p>
+              <button
+                className="goals-retry-button"
+                type="button"
+                onClick={() => void dispatch(loadGoalCategories())}>
+                <RefreshCw size={15} aria-hidden="true" />
+                Try again
+              </button>
+            </div>
+          )}
+        </div>
       ) : filteredGoals.length === 0 ? (
         <p className="goals-empty-state">No {filter.toLowerCase()} goals.</p>
       ) : (
@@ -330,6 +457,7 @@ function GoalsPage() {
                   <div className="goal-card-copy">
                     <div className="goal-title-row">
                       <h2>{goal.title}</h2>
+                      <GoalCategoryBadge goal={goal} />
                       {getGoalTimelineLabel(goal.timeline) && (
                         <span className="goal-timeline">
                           {getGoalTimelineLabel(goal.timeline)}
@@ -386,6 +514,18 @@ function GoalsPage() {
                     onClick={() => openEditDialog(goal)}>
                     <Pencil size={16} aria-hidden="true" />
                   </button>
+                  <button
+                    className="goals-edit-button goals-delete-icon"
+                    type="button"
+                    aria-label={`Delete goal: ${goal.title}`}
+                    title="Delete goal"
+                    disabled={isDeleting && goalToDelete?.id === goal.id}
+                    onClick={() => {
+                      setDeleteError("")
+                      setGoalToDelete(goal)
+                    }}>
+                    <Trash2 size={16} aria-hidden="true" />
+                  </button>
                 </div>
 
                 <div className="goal-progress">
@@ -427,12 +567,27 @@ function GoalsPage() {
         </div>
       )}
 
+      {goalToDelete && (
+        <ConfirmDialog
+          title="Delete goal?"
+          confirmLabel="Delete goal"
+          isBusy={isDeleting}
+          error={deleteError}
+          onConfirm={() => void confirmDelete()}
+          onCancel={closeDeleteDialog}>
+          <p>
+            &ldquo;{goalToDelete.title}&rdquo; will be permanently deleted. Its
+            linked tasks will be kept as independent tasks.
+          </p>
+        </ConfirmDialog>
+      )}
+
       {isDialogOpen && (
         <div
           className="goals-dialog-backdrop"
           onClick={() => !isSaving && setIsDialogOpen(false)}>
           <section
-            className="goals-dialog"
+            className={`goals-dialog${categoriesReady ? " has-category-grid" : ""}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="goal-dialog-title"
@@ -459,6 +614,61 @@ function GoalsPage() {
                   </span>
                 )}
               </label>
+              <div className="goals-category-field">
+                <span id="goal-category-label">
+                  Life area <span>(Optional)</span>
+                </span>
+                {categoriesReady ? (
+                  <>
+                    <CategoryGrid
+                      categories={categories}
+                      selectedKey={category}
+                      onSelect={(key) =>
+                        setCategory((current) => (current === key ? null : key))
+                      }
+                    />
+                    <select
+                      aria-labelledby="goal-category-label"
+                      value={category ?? ""}
+                      onChange={(event) =>
+                        setCategory(event.currentTarget.value || null)
+                      }
+                      aria-invalid={Boolean(formErrors.category)}
+                      aria-describedby="goal-category-help">
+                      <option value="">No category</option>
+                      {categories.map((option) => (
+                        <option key={option.key} value={option.key}>
+                          {option.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="goals-category-help" id="goal-category-help">
+                      {categories.find((option) => option.key === category)
+                        ?.description ?? "No category selected."}
+                    </p>
+                  </>
+                ) : categoriesStatus === "failed" ? (
+                  <div className="goals-load-error" role="alert">
+                    <p>{categoriesError}</p>
+                    <button
+                      className="goals-retry-button"
+                      type="button"
+                      onClick={() => void dispatch(loadGoalCategories())}>
+                      <RefreshCw size={15} aria-hidden="true" />
+                      Try again
+                    </button>
+                  </div>
+                ) : (
+                  <p className="goals-category-help" role="status">
+                    Loading categories...
+                  </p>
+                )}
+                {formErrors.category && (
+                  <span className="goals-field-error" role="alert">
+                    {formErrors.category}
+                  </span>
+                )}
+              </div>
               <label className="goals-form-field">
                 Description <span>(Optional)</span>
                 <textarea

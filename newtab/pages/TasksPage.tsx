@@ -572,7 +572,9 @@ function TasksPage() {
                       )}
                     {incompleteGoals.map((goal) => (
                       <option value={goal.id} key={goal.id}>
-                        {goal.title}
+                        {goal.category_detail
+                          ? `${goal.title} · ${goal.category_detail.name}`
+                          : goal.title}
                       </option>
                     ))}
                   </select>

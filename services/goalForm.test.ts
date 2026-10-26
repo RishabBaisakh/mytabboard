@@ -46,7 +46,8 @@ describe("buildGoalPayload", () => {
       startDate: today,
       dueDate: "",
       timeline: "mid_term",
-      motivation: "  because  "
+      motivation: "  because  ",
+      category: null
     })
     expect(payload).toEqual({
       title: "Learn",
@@ -56,5 +57,77 @@ describe("buildGoalPayload", () => {
       timeline: "mid_term",
       motivation: "because"
     })
+  })
+})
+
+describe("goal form category handling", () => {
+  const base = {
+    title: "Learn",
+    description: "",
+    startDate: today,
+    dueDate: "",
+    timeline: "short_term" as const,
+    motivation: ""
+  }
+  const goal: Goal = {
+    id: 1,
+    title: "Run",
+    start_date: "2026-01-01",
+    timeline: "short_term",
+    motivation: "",
+    category: "health_wellness",
+    category_detail: {
+      key: "health_wellness",
+      name: "Health & Wellness",
+      description: "Body and mind"
+    }
+  }
+
+  it("starts with no category, or the preset one from a category card", () => {
+    expect(getGoalFormValues(null, today).category).toBeNull()
+    expect(getGoalFormValues(null, today, "financial_life").category).toBe(
+      "financial_life"
+    )
+  })
+
+  it("preselects the goal's category when editing, and null for old goals", () => {
+    expect(getGoalFormValues(goal, today).category).toBe("health_wellness")
+    expect(
+      getGoalFormValues({ ...goal, category: null }, today).category
+    ).toBeNull()
+    expect(
+      getGoalFormValues({ ...goal, category: undefined }, today).category
+    ).toBeNull()
+  })
+
+  it("create sends the category key only when one is chosen", () => {
+    expect(
+      buildGoalPayload({ ...base, category: "career_learning" })
+    ).toMatchObject({ category: "career_learning" })
+    expect(buildGoalPayload({ ...base, category: null })).not.toHaveProperty(
+      "category"
+    )
+  })
+
+  it("edit omits an untouched category, sends a changed key, and sends explicit null when cleared", () => {
+    const untouched = buildGoalPayload(
+      { ...base, category: "health_wellness" },
+      "health_wellness"
+    )
+    expect(untouched).not.toHaveProperty("category")
+    expect(
+      buildGoalPayload({ ...base, category: "personal_life" }, "health_wellness")
+    ).toMatchObject({ category: "personal_life" })
+    const cleared = buildGoalPayload(
+      { ...base, category: null },
+      "health_wellness"
+    )
+    expect(cleared).toHaveProperty("category", null)
+  })
+
+  it("does not add a category to an uncategorised goal that was left alone", () => {
+    expect(buildGoalPayload({ ...base, category: null }, null)).not.toHaveProperty(
+      "category"
+    )
   })
 })

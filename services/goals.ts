@@ -18,6 +18,16 @@ export function getGoalTimelineLabel(value?: string | null) {
   return GOAL_TIMELINE_OPTIONS.find((option) => option.value === value)?.label
 }
 
+export type GoalCategory = {
+  key: string
+  name: string
+  description: string
+}
+
+export type GoalListParams = {
+  category?: string | null
+}
+
 export type Goal = {
   id: number
   title: string
@@ -27,6 +37,8 @@ export type Goal = {
   timeline: GoalTimeline
   motivation: string
   status?: GoalStatus
+  category?: string | null
+  category_detail?: GoalCategory | null
 }
 
 export type GoalWritePayload = {
@@ -36,6 +48,8 @@ export type GoalWritePayload = {
   due_date?: string | null
   timeline: GoalTimeline
   motivation?: string
+  // Omit to leave unchanged; null clears the category.
+  category?: string | null
 }
 
 export function isValidDateValue(value: string) {
@@ -59,8 +73,20 @@ export function getGoalStatus(goal: Goal, tasks: Task[]): GoalStatus {
 
 export function createGoalsService(api: Pick<ApiClient, "request">) {
   return {
-    list(): Promise<Goal[]> {
-      return api.request<Goal[]>("/api/v1/goals/", {
+    list({ category }: GoalListParams = {}): Promise<Goal[]> {
+      const query = new URLSearchParams()
+      if (category) query.set("category", category)
+      const search = query.toString()
+      return api.request<Goal[]>(
+        `/api/v1/goals/${search ? `?${search}` : ""}`,
+        {
+          authenticated: true
+        }
+      )
+    },
+
+    getGoalCategories(): Promise<GoalCategory[]> {
+      return api.request<GoalCategory[]>("/api/v1/goals/categories/", {
         authenticated: true
       })
     },
@@ -69,6 +95,13 @@ export function createGoalsService(api: Pick<ApiClient, "request">) {
       return api.request<Goal>("/api/v1/goals/", {
         method: "POST",
         body: payload,
+        authenticated: true
+      })
+    },
+
+    deleteGoal(id: number): Promise<void> {
+      return api.request<void>(`/api/v1/goals/${id}/`, {
+        method: "DELETE",
         authenticated: true
       })
     },
@@ -84,3 +117,7 @@ export function createGoalsService(api: Pick<ApiClient, "request">) {
 }
 
 export const goalsService = createGoalsService(apiClient)
+
+export function getGoalCategories() {
+  return goalsService.getGoalCategories()
+}
