@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { ApiClient, type AuthTokens, type TokenStorage } from "./api"
-import { createTasksService, type Task, type TaskWriteFields } from "./tasks"
+import { ApiClient, ApiError, type AuthTokens, type TokenStorage } from "./api"
+import {
+  createTasksService,
+  formatLocalDate,
+  taskListPath,
+  type Task,
+  type TaskWriteFields
+} from "./tasks"
 
 class MemoryTokenStorage implements TokenStorage {
   tokens: AuthTokens | null = {
@@ -158,5 +164,62 @@ describe("tasks service", () => {
       scheduled_start: payload.scheduled_start,
       scheduled_end: payload.scheduled_end
     })
+  })
+})
+
+describe("task list date params", () => {
+  it("sends no query when no dates are given", () => {
+    expect(taskListPath()).toBe("/api/v1/tasks/")
+  })
+
+  it("sends start_date and end_date as local calendar dates", () => {
+    expect(
+      taskListPath({
+        startDate: new Date(2026, 9, 19),
+        endDate: new Date(2026, 9, 25)
+      })
+    ).toBe("/api/v1/tasks/?start_date=2026-10-19&end_date=2026-10-25")
+  })
+
+  it("formats near local midnight without shifting the day", () => {
+    expect(formatLocalDate(new Date(2026, 9, 21, 23, 59, 59))).toBe(
+      "2026-10-21"
+    )
+    expect(formatLocalDate(new Date(2026, 9, 21, 0, 0, 1))).toBe("2026-10-21")
+    expect(formatLocalDate(new Date(2026, 0, 1, 0, 30))).toBe("2026-01-01")
+  })
+
+  it("requests the endpoint with auth and the date params", async () => {
+    const fetcher = vi.fn(async () => response([]))
+    const service = createTasksService(
+      new ApiClient("http://api.test", new MemoryTokenStorage(), fetcher)
+    )
+    await service.list({ startDate: new Date(2026, 9, 21) })
+    const [url, init] = fetcher.mock.calls[0] as unknown as [
+      string,
+      RequestInit
+    ]
+    expect(url).toBe("http://api.test/api/v1/tasks/?start_date=2026-10-21")
+    expect((init.headers as Headers).get("Authorization")).toContain(
+      "test-access"
+    )
+  })
+
+  it("surfaces the backend 400 field message", async () => {
+    const fetcher = vi.fn(async () =>
+      response({ end_date: "Must be on or after start_date." }, 400)
+    )
+    const service = createTasksService(
+      new ApiClient("http://api.test", new MemoryTokenStorage(), fetcher)
+    )
+    const error = await service
+      .list({
+        startDate: new Date(2026, 9, 21),
+        endDate: new Date(2026, 9, 20)
+      })
+      .catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).status).toBe(400)
+    expect((error as ApiError).message).toBe("Must be on or after start_date.")
   })
 })

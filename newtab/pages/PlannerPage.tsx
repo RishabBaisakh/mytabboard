@@ -3,15 +3,8 @@ import React from "react"
 
 import { tasksService } from "../../services/tasks"
 import { calculateTaskSchedule } from "../../services/taskScheduling"
-import { useAppDispatch, useAppSelector } from "../../store/hooks"
-import {
-  loadTasks,
-  selectAllTasks,
-  selectTasksError,
-  selectTasksStatus,
-  taskCreated,
-  taskUpdated
-} from "../../store/tasksSlice"
+import { useAppDispatch } from "../../store/hooks"
+import { taskCreated, taskUpdated } from "../../store/tasksSlice"
 import {
   dateForViewChange,
   formatPlannerDay,
@@ -22,17 +15,87 @@ import {
   toLocalDateValue,
   type PlannerView
 } from "./plannerCalendar"
+import {
+  createLatestGuard,
+  getDayRange,
+  getWeekRange,
+  INITIAL_RANGE_STATE,
+  rangeKey,
+  type RangeState
+} from "./plannerRequests"
 import { getDayTimelineItems, getWeekItems } from "./plannerTasks"
 
 import "../../styles/pages/planner.css"
 
+// Fetches only the range of the active view. Results are tagged with the range
+// key so tasks from another range are never shown as if they were current.
+function useRangeTasks(
+  range: ReturnType<typeof getDayRange>,
+  reloadToken: number
+) {
+  const [state, setState] = React.useState<RangeState>(INITIAL_RANGE_STATE)
+  const guardRef = React.useRef(createLatestGuard())
+  const key = rangeKey(range)
+
+  React.useEffect(() => {
+    const isCurrent = guardRef.current.begin()
+    setState((current) => ({ ...current, status: "loading", error: "" }))
+    tasksService
+      .list(range)
+      .then((tasks) => {
+        if (isCurrent())
+          setState({ key, tasks, status: "succeeded", error: "" })
+      })
+      .catch((error: unknown) => {
+        if (!isCurrent()) return
+        setState({
+          key,
+          tasks: [],
+          status: "failed",
+          error:
+            error instanceof Error ? error.message : "Unable to load tasks."
+        })
+      })
+    return () => guardRef.current.cancel()
+    // `range` is a fresh object each render; `key` captures its value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, reloadToken])
+
+  const isCurrentRange = state.key === key
+  return {
+    tasks: isCurrentRange ? state.tasks : [],
+    error: isCurrentRange ? state.error : "",
+    // First load of this range: show skeletons.
+    isLoading:
+      !isCurrentRange ||
+      (state.status === "loading" && state.tasks.length === 0 && !state.error),
+    // Same range reloading with data already on screen.
+    isRefreshing:
+      isCurrentRange && state.status === "loading" && state.tasks.length > 0
+  }
+}
+
+function TaskSkeleton({ rows, label }: { rows: number; label: string }) {
+  return (
+    <div className="planner-skeleton" role="status" aria-live="polite">
+      <span className="planner-sr-only">{label}</span>
+      {Array.from({ length: rows }, (_, index) => (
+        <div className="planner-skeleton-row" key={index} aria-hidden="true">
+          <span className="planner-skeleton-time" />
+          <span className="planner-skeleton-bar" />
+          <span className="planner-skeleton-copy">
+            <span />
+            <span />
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function PlannerPage() {
   const [selectedView, setSelectedView] = React.useState<PlannerView>("Day")
   const dispatch = useAppDispatch()
-  const tasks = useAppSelector(selectAllTasks)
-  const tasksStatus = useAppSelector(selectTasksStatus)
-  const tasksError = useAppSelector(selectTasksError)
-  const isLoading = tasksStatus === "idle" || tasksStatus === "loading"
   const [actionError, setActionError] = React.useState("")
   const [isAdding, setIsAdding] = React.useState(false)
   const [pendingIds, setPendingIds] = React.useState<Set<string>>(
@@ -44,8 +107,17 @@ function PlannerPage() {
   const [isQuickAddOpen, setIsQuickAddOpen] = React.useState(false)
   const [newTaskTitle, setNewTaskTitle] = React.useState("")
   const [newTaskTime, setNewTaskTime] = React.useState("16:00")
-  const timelineItems = getDayTimelineItems(tasks, selectedDate)
-  const weekItems = getWeekItems(tasks, selectedDate)
+  const [reloadToken, setReloadToken] = React.useState(0)
+  const isWeek = selectedView === "Week"
+  const rangeState = useRangeTasks(
+    isWeek ? getWeekRange(selectedDate) : getDayRange(selectedDate),
+    reloadToken
+  )
+  const timelineItems = getDayTimelineItems(rangeState.tasks)
+  const weekItems = getWeekItems(rangeState.tasks, selectedDate)
+  const { isLoading, isRefreshing } = rangeState
+  const tasksError = rangeState.error
+  const reloadTasks = () => setReloadToken((token) => token + 1)
   const dayHeading = selectedDate.toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
@@ -74,10 +146,6 @@ function PlannerPage() {
     setSelectedDate(getLocalDate(new Date()))
   }
 
-  React.useEffect(() => {
-    void dispatch(loadTasks())
-  }, [dispatch])
-
   async function addTask(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const title = newTaskTitle.trim()
@@ -100,6 +168,7 @@ function PlannerPage() {
         ...schedule
       })
       dispatch(taskCreated(created))
+      reloadTasks()
       setNewTaskTitle("")
       setNewTaskTime("16:00")
       setIsQuickAddOpen(false)
@@ -121,6 +190,7 @@ function PlannerPage() {
         status: done ? "todo" : "completed"
       })
       dispatch(taskUpdated(updated))
+      reloadTasks()
     } catch (error) {
       setActionError(
         error instanceof Error ? error.message : "Unable to update this task."
@@ -208,89 +278,115 @@ function PlannerPage() {
         </button>
       </div>
 
-      <div className="planner-content-grid">
-        <section
-          className="planner-section"
-          aria-labelledby="planner-day-title">
-          <header className="planner-section-header">
-            <p>Daily schedule</p>
-            <h2 id="planner-day-title">{dayHeading}</h2>
-          </header>
-          {isLoading ? (
-            <p className="planner-state-message" role="status">
-              Loading tasks...
-            </p>
-          ) : tasksError ? (
-            <div className="planner-state-message" role="alert">
-              <p>{tasksError}</p>
-              <button type="button" onClick={() => void dispatch(loadTasks())}>
-                Try again
-              </button>
-            </div>
-          ) : timelineItems.length === 0 ? (
-            <p className="planner-state-message">
-              No tasks scheduled for this day.
-            </p>
-          ) : (
-            <ol className="planner-timeline">
-              {timelineItems.map(
-                ({ id, time, timeRange, title, detail, tone }) => (
-                  <li className={`planner-timeline-item tone-${tone}`} key={id}>
-                    <time title={timeRange}>{time}</time>
-                    <span className="planner-timeline-bar" aria-hidden="true" />
-                    <div className="planner-timeline-copy">
-                      <h3>{title}</h3>
-                      <span>{detail}</span>
-                    </div>
-                  </li>
-                )
-              )}
-            </ol>
-          )}
-          {actionError && (
-            <p className="planner-state-message" role="alert">
-              {actionError}
-            </p>
-          )}
-        </section>
+      <div className="planner-content-grid planner-content-single">
+        {!isWeek && (
+          <section
+            className="planner-section"
+            aria-busy={isLoading || isRefreshing}
+            aria-labelledby="planner-day-title">
+            <header className="planner-section-header">
+              <p>Daily schedule</p>
+              <h2 id="planner-day-title">{dayHeading}</h2>
+            </header>
+            {isRefreshing && (
+              <div className="planner-refresh-bar" aria-hidden="true" />
+            )}
+            {isLoading ? (
+              <TaskSkeleton rows={4} label="Loading tasks..." />
+            ) : tasksError ? (
+              <div className="planner-state-message" role="alert">
+                <p>{tasksError}</p>
+                <button type="button" onClick={reloadTasks}>
+                  Try again
+                </button>
+              </div>
+            ) : timelineItems.length === 0 ? (
+              <p className="planner-state-message">
+                No tasks scheduled for this day.
+              </p>
+            ) : (
+              <ol
+                className={`planner-timeline${isRefreshing ? " is-refreshing" : ""}`}>
+                {timelineItems.map(
+                  ({ id, time, timeRange, title, detail, tone }) => (
+                    <li
+                      className={`planner-timeline-item tone-${tone}`}
+                      key={id}>
+                      <time title={timeRange}>{time}</time>
+                      <span
+                        className="planner-timeline-bar"
+                        aria-hidden="true"
+                      />
+                      <div className="planner-timeline-copy">
+                        <h3>{title}</h3>
+                        <span>{detail}</span>
+                      </div>
+                    </li>
+                  )
+                )}
+              </ol>
+            )}
+            {actionError && (
+              <p className="planner-state-message" role="alert">
+                {actionError}
+              </p>
+            )}
+          </section>
+        )}
 
-        <section
-          className="planner-section"
-          aria-labelledby="planner-week-title">
-          <header className="planner-section-header planner-week-header">
-            <h2 id="planner-week-title">This Week</h2>
-          </header>
-          {isLoading || tasksError ? null : weekItems.length === 0 ? (
-            <p className="planner-state-message">
-              No tasks scheduled for this week.
-            </p>
-          ) : (
-            <ul className="planner-week-list">
-              {weekItems.map(({ id, day, title, done }) => (
-                <li className="planner-week-task" key={id}>
-                  <button
-                    className="planner-week-check"
-                    type="button"
-                    role="checkbox"
-                    aria-checked={done}
-                    disabled={pendingIds.has(id)}
-                    aria-label={
-                      done
-                        ? `Mark ${title} incomplete`
-                        : `Mark ${title} complete`
-                    }
-                    onClick={() => void toggleDone(id, done)}>
-                    {done && (
-                      <Check size={12} strokeWidth={2.5} aria-hidden="true" />
-                    )}
-                  </button>
-                  <span>{day}</span>
-                  <p title={title}>{title}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        {isWeek && (
+          <section
+            className="planner-section"
+            aria-busy={isLoading || isRefreshing}
+            aria-labelledby="planner-week-title">
+            <header className="planner-section-header planner-week-header">
+              <h2 id="planner-week-title">{formatPlannerWeek(selectedDate)}</h2>
+            </header>
+            {isRefreshing && (
+              <div className="planner-refresh-bar" aria-hidden="true" />
+            )}
+            {isLoading ? (
+              <TaskSkeleton rows={5} label="Loading tasks..." />
+            ) : tasksError ? (
+              <div className="planner-state-message" role="alert">
+                <p>{tasksError}</p>
+                <button type="button" onClick={reloadTasks}>
+                  Try again
+                </button>
+              </div>
+            ) : weekItems.length === 0 ? (
+              <p className="planner-state-message">
+                No tasks scheduled for this week.
+              </p>
+            ) : (
+              <ul
+                className={`planner-week-list${isRefreshing ? " is-refreshing" : ""}`}>
+                {weekItems.map(({ id, day, title, done }) => (
+                  <li className="planner-week-task" key={`${id}-${day}`}>
+                    <button
+                      className="planner-week-check"
+                      type="button"
+                      role="checkbox"
+                      aria-checked={done}
+                      disabled={pendingIds.has(id)}
+                      aria-label={
+                        done
+                          ? `Mark ${title} incomplete`
+                          : `Mark ${title} complete`
+                      }
+                      onClick={() => void toggleDone(id, done)}>
+                      {done && (
+                        <Check size={12} strokeWidth={2.5} aria-hidden="true" />
+                      )}
+                    </button>
+                    <span>{day}</span>
+                    <p title={title}>{title}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
       </div>
 
       {isQuickAddOpen && (

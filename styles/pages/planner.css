@@ -445,3 +445,103 @@
   font: inherit;
   cursor: pointer;
 }
+
+.planner-content-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.planner-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.planner-skeleton {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.planner-skeleton-row {
+  display: grid;
+  grid-template-columns: 56px 4px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.planner-skeleton-time,
+.planner-skeleton-bar,
+.planner-skeleton-copy span {
+  display: block;
+  border-radius: 4px;
+  background: #e9edf3;
+  animation: planner-pulse 1.4s ease-in-out infinite;
+}
+
+.planner-skeleton-time {
+  height: 12px;
+}
+
+.planner-skeleton-bar {
+  height: 40px;
+}
+
+.planner-skeleton-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.planner-skeleton-copy span {
+  height: 12px;
+}
+
+.planner-skeleton-copy span:last-child {
+  width: 55%;
+}
+
+.planner-refresh-bar {
+  height: 2px;
+  margin-top: 12px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #3869a8, transparent);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: planner-refresh 1.1s ease-in-out infinite;
+}
+
+.planner-timeline.is-refreshing,
+.planner-week-list.is-refreshing {
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+@keyframes planner-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes planner-refresh {
+  from {
+    background-position: -50% 0;
+  }
+  to {
+    background-position: 150% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planner-skeleton-time,
+  .planner-skeleton-bar,
+  .planner-skeleton-copy span,
+  .planner-refresh-bar {
+    animation: none;
+  }
+
+  .planner-refresh-bar {
+    background-size: 100% 100%;
+  }
+}

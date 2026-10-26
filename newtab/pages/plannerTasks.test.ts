@@ -30,30 +30,27 @@ function makeTask(
 const day = new Date(2026, 9, 21)
 
 describe("getDayTimelineItems", () => {
-  it("returns only tasks starting on the selected local day, sorted by start", () => {
+  it("sorts server results (ordered by -created_at) by start without date filtering", () => {
     const tasks = [
       makeTask("late", new Date(2026, 9, 21, 15, 30), 30),
       makeTask("early", new Date(2026, 9, 21, 8, 30), 60),
-      makeTask("other", new Date(2026, 9, 22, 9, 0), 60),
-      makeTask("lateNight", new Date(2026, 9, 21, 23, 45), 30)
+      // Started the previous evening and crosses midnight into the day.
+      makeTask("overnight", new Date(2026, 9, 20, 23, 0), 120)
     ]
-    expect(getDayTimelineItems(tasks, day).map((item) => item.id)).toEqual([
+    expect(getDayTimelineItems(tasks).map((item) => item.id)).toEqual([
+      "overnight",
       "early",
-      "late",
-      "lateNight"
+      "late"
     ])
   })
 
   it("maps status, description and time range", () => {
-    const [item] = getDayTimelineItems(
-      [
-        makeTask("a", new Date(2026, 9, 21, 9, 0), 90, {
-          status: "completed",
-          description: "Notes"
-        })
-      ],
-      day
-    )
+    const [item] = getDayTimelineItems([
+      makeTask("a", new Date(2026, 9, 21, 9, 0), 90, {
+        status: "completed",
+        description: "Notes"
+      })
+    ])
     expect(item.detail).toBe("Notes")
     expect(item.done).toBe(true)
     expect(item.tone).toBe("teal")
@@ -62,26 +59,48 @@ describe("getDayTimelineItems", () => {
 
   it("skips tasks with an invalid schedule and returns empty for no tasks", () => {
     const bad = makeTask("bad", day, 30, { scheduled_start: "" })
-    expect(getDayTimelineItems([bad], day)).toEqual([])
-    expect(getDayTimelineItems([], day)).toEqual([])
+    expect(getDayTimelineItems([bad])).toEqual([])
+    expect(getDayTimelineItems([])).toEqual([])
   })
 
   it("does not duplicate a task that appears once", () => {
     const task = makeTask("a", new Date(2026, 9, 21, 9, 0), 30)
-    expect(getDayTimelineItems([task], day)).toHaveLength(1)
+    expect(getDayTimelineItems([task])).toHaveLength(1)
   })
 })
 
 describe("getWeekItems", () => {
-  it("includes Monday-Sunday tasks of the selected week only", () => {
+  it("lists tasks in start order with their weekday", () => {
     const tasks = [
-      makeTask("mon", new Date(2026, 9, 19, 9, 0), 30),
       makeTask("sun", new Date(2026, 9, 25, 9, 0), 30),
-      makeTask("prev", new Date(2026, 9, 18, 9, 0), 30),
-      makeTask("next", new Date(2026, 9, 26, 9, 0), 30)
+      makeTask("mon", new Date(2026, 9, 19, 9, 0), 30)
     ]
     const items = getWeekItems(tasks, day)
     expect(items.map((item) => item.id)).toEqual(["mon", "sun"])
     expect(items.map((item) => item.day)).toEqual(["MON", "SUN"])
+  })
+
+  it("places a cross-midnight task in each day column it overlaps", () => {
+    const items = getWeekItems(
+      [makeTask("x", new Date(2026, 9, 21, 23, 0), 120)],
+      day
+    )
+    expect(items.map((item) => item.day)).toEqual(["WED", "THU"])
+  })
+
+  it("does not spill a task ending exactly at midnight into the next day", () => {
+    const items = getWeekItems(
+      [makeTask("x", new Date(2026, 9, 21, 22, 0), 120)],
+      day
+    )
+    expect(items.map((item) => item.day)).toEqual(["WED"])
+  })
+
+  it("clamps a task spilling in from the previous week to Monday", () => {
+    const items = getWeekItems(
+      [makeTask("x", new Date(2026, 9, 18, 23, 0), 120)],
+      day
+    )
+    expect(items.map((item) => item.day)).toEqual(["MON"])
   })
 })

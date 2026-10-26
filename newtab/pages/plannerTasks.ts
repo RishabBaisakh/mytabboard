@@ -1,10 +1,5 @@
 import type { Task, TaskStatus } from "../../services/tasks"
-import {
-  addCalendarDays,
-  getLocalDate,
-  getWeekStart,
-  toLocalDateValue
-} from "./plannerCalendar"
+import { addCalendarDays, getLocalDate, getWeekStart } from "./plannerCalendar"
 
 export type PlannerTone = "blue" | "teal" | "amber" | "coral"
 
@@ -53,14 +48,8 @@ function formatTime(date: Date) {
   })
 }
 
-// Tasks are placed on the local day of their start; unscheduled/invalid ones are skipped.
-export function getScheduledTasksForRange(
-  tasks: Task[],
-  firstDay: Date,
-  dayCount: number
-) {
-  const first = toLocalDateValue(firstDay)
-  const last = toLocalDateValue(addCalendarDays(firstDay, dayCount - 1))
+// The backend already filtered by date; this only drops unparseable schedules and sorts.
+export function getScheduledTasks(tasks: Task[]) {
   return tasks
     .map((task) => ({ task, schedule: parseSchedule(task) }))
     .filter(
@@ -69,11 +58,7 @@ export function getScheduledTasksForRange(
       ): entry is {
         task: Task
         schedule: NonNullable<typeof entry.schedule>
-      } => {
-        if (!entry.schedule) return false
-        const day = toLocalDateValue(entry.schedule.start)
-        return day >= first && day <= last
-      }
+      } => entry.schedule !== null
     )
     .sort(
       (a, b) =>
@@ -82,34 +67,51 @@ export function getScheduledTasksForRange(
     )
 }
 
-export function getDayTimelineItems(
-  tasks: Task[],
-  date: Date
-): PlannerTimelineItem[] {
-  return getScheduledTasksForRange(tasks, getLocalDate(date), 1).map(
-    ({ task, schedule }) => ({
-      id: task.id,
-      time: formatTime(schedule.start),
-      timeRange: schedule.end
-        ? `${formatTime(schedule.start)} – ${formatTime(schedule.end)}`
-        : formatTime(schedule.start),
-      title: task.title,
-      detail: task.description || STATUS_LABELS[task.status],
-      tone: STATUS_TONES[task.status],
-      done: task.status === "completed"
-    })
-  )
+export function getDayTimelineItems(tasks: Task[]): PlannerTimelineItem[] {
+  return getScheduledTasks(tasks).map(({ task, schedule }) => ({
+    id: task.id,
+    time: formatTime(schedule.start),
+    timeRange: schedule.end
+      ? `${formatTime(schedule.start)} – ${formatTime(schedule.end)}`
+      : formatTime(schedule.start),
+    title: task.title,
+    detail: task.description || STATUS_LABELS[task.status],
+    tone: STATUS_TONES[task.status],
+    done: task.status === "completed"
+  }))
 }
 
+// A task crossing midnight is listed once per local day it overlaps within the week.
 export function getWeekItems(tasks: Task[], date: Date): PlannerWeekItem[] {
-  return getScheduledTasksForRange(tasks, getWeekStart(date), 7).map(
-    ({ task, schedule }) => ({
-      id: task.id,
-      day: schedule.start
-        .toLocaleDateString("en-US", { weekday: "short" })
-        .toUpperCase(),
-      title: task.title,
-      done: task.status === "completed"
-    })
-  )
+  const weekStart = getWeekStart(date)
+  const weekEnd = addCalendarDays(weekStart, 6)
+  const items: PlannerWeekItem[] = []
+
+  for (const { task, schedule } of getScheduledTasks(tasks)) {
+    const startDay = getLocalDate(schedule.start)
+    // The end instant is exclusive, so an end exactly at midnight belongs to the previous day.
+    const lastInstant =
+      schedule.end && schedule.end > schedule.start
+        ? new Date(schedule.end.getTime() - 1)
+        : schedule.start
+    const endDay = getLocalDate(lastInstant)
+    // Clamp so tasks the server returned for a UTC-adjacent day still appear in the week.
+    let day = startDay < weekStart ? weekStart : startDay
+    const last = endDay > weekEnd ? weekEnd : endDay
+    if (day > last) day = last < weekStart ? weekStart : last
+
+    do {
+      items.push({
+        id: task.id,
+        day: day
+          .toLocaleDateString("en-US", { weekday: "short" })
+          .toUpperCase(),
+        title: task.title,
+        done: task.status === "completed"
+      })
+      day = addCalendarDays(day, 1)
+    } while (day <= last)
+  }
+
+  return items
 }
