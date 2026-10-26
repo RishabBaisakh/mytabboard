@@ -40,6 +40,22 @@
   box-shadow: 0 0 0 1px var(--category-color);
 }
 
+.category-card-none {
+  --category-color: #596579;
+  --category-tint: #eef2f8;
+}
+
+.goals-step-indicator {
+  margin: -12px 0 16px;
+  color: #687386;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.goals-dialog h2:focus {
+  outline: none;
+}
+
 .category-card-art {
   display: grid;
   flex: 0 0 44px;

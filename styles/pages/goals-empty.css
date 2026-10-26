@@ -1,0 +1,196 @@
+.goals-empty {
+  display: grid;
+  gap: 28px;
+  margin-top: 24px;
+}
+
+.goals-empty-heading {
+  margin: 0 0 12px;
+  color: #172033;
+  font-size: 16px;
+}
+
+.goals-empty-sub {
+  margin: -6px 0 14px;
+  color: #687386;
+  font-size: 13px;
+}
+
+.goals-how-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goals-how-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #e2e6ed;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.goals-how-card h3 {
+  margin: 0;
+  color: #172033;
+  font-size: 13px;
+}
+
+.goals-how-card p {
+  margin: 2px 0 0;
+  color: #687386;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.goals-how-icon {
+  display: grid;
+  flex: 0 0 38px;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: var(--how-tint);
+  color: var(--how-color);
+}
+
+.goals-banner {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  overflow: hidden;
+  padding: 26px;
+  border-radius: 10px;
+  background: #101d35;
+  color: #fff;
+}
+
+.goals-banner-art {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  color: rgb(255 255 255 / 8%);
+  pointer-events: none;
+}
+
+.goals-banner-copy {
+  position: relative;
+  max-width: 560px;
+}
+
+.goals-banner-eyebrow {
+  margin: 0 0 6px;
+  color: #a9c8f5;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.goals-banner h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+
+.goals-banner-copy p:last-child {
+  margin: 0;
+  color: rgb(255 255 255 / 75%);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.goals-banner-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  color: #101d35;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.goals-banner-button span {
+  flex: 1;
+  text-align: center;
+}
+
+.goals-banner-button:hover {
+  background: #eef3fb;
+}
+
+.goals-banner-button:focus-visible,
+.goals-shortcut:focus-visible {
+  outline: 2px solid #7494c3;
+  outline-offset: 2px;
+}
+
+.goals-shortcut-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.goals-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #e2e6ed;
+  border-radius: 8px;
+  background: #fff;
+  color: #8993a2;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.goals-shortcut:hover {
+  border-color: var(--how-color);
+  background: var(--how-tint);
+}
+
+.goals-shortcut-name {
+  flex: 1;
+  min-width: 0;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+  .goals-shortcut-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .goals-how-list,
+  .goals-shortcut-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goals-shortcut {
+    transition: none;
+  }
+}

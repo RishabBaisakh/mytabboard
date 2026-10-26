@@ -71,6 +71,37 @@ describe("CategoryGrid", () => {
     expect(onSelect).toHaveBeenCalledWith("personal_life")
   })
 
+  it("renders a No category card that is selected when the key is null", () => {
+    const onSelectNone = vi.fn()
+    const element = (
+      <CategoryGrid
+        categories={categories}
+        selectedKey={null}
+        onSelect={() => {}}
+        onSelectNone={onSelectNone}
+      />
+    )
+    const html = renderToStaticMarkup(element)
+    expect(html).toContain("No category")
+    expect(html.match(/aria-pressed="true"/g)).toHaveLength(1)
+    const buttons = findButtons(element)
+    expect(buttons).toHaveLength(4)
+    ;(buttons[3].props as { onClick: () => void }).onClick()
+    expect(onSelectNone).toHaveBeenCalled()
+  })
+
+  it("omits the No category card by default", () => {
+    expect(
+      renderToStaticMarkup(
+        <CategoryGrid
+          categories={categories}
+          selectedKey={null}
+          onSelect={() => {}}
+        />
+      )
+    ).not.toContain("No category")
+  })
+
   it("falls back to a neutral visual for unknown keys", () => {
     expect(getCategoryVisual("mystery_key")).toBe(getCategoryVisual(null))
     expect(getCategoryVisual("health_wellness")).not.toBe(

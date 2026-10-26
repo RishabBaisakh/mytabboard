@@ -6,11 +6,12 @@ import {
   RefreshCw,
   Trash2
 } from "lucide-react"
-import { useEffect, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 
 import { CategoryGrid } from "../../components/goals/CategoryGrid"
 import { ConfirmDialog } from "../../components/goals/ConfirmDialog"
 import { GoalCategoryBadge } from "../../components/goals/GoalCategoryBadge"
+import { GoalsEmptyState } from "../../components/goals/GoalsEmptyState"
 import { ApiError } from "../../services/api"
 import { buildGoalPayload, getGoalFormValues } from "../../services/goalForm"
 import {
@@ -137,6 +138,9 @@ function GoalsPage() {
     () => new Set()
   )
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  // Create flow: 1 = choose a category, 2 = goal details. Editing is always step 2.
+  const [step, setStep] = useState<1 | 2>(2)
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -159,6 +163,10 @@ function GoalsPage() {
     // Only on mount: later category changes are dispatched by the filter handler.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch])
+
+  useEffect(() => {
+    if (isDialogOpen && step === 1) headingRef.current?.focus()
+  }, [isDialogOpen, step])
 
   function changeCategoryFilter(value: string) {
     void dispatch(loadGoals(value || null))
@@ -183,15 +191,19 @@ function GoalsPage() {
     setMotivation(values.motivation)
     setFormErrors({})
     setSaveError("")
+    setStep(1)
     setIsDialogOpen(true)
   }
 
+  // Create starts at the category step; a category card already made that choice.
   function openCreateDialog(presetCategory: string | null = null) {
     openGoalDialog(null, presetCategory)
+    setStep(categoriesReady && presetCategory === null ? 1 : 2)
   }
 
   function openEditDialog(goal: Goal) {
     openGoalDialog(goal)
+    setStep(2)
   }
 
   function closeDeleteDialog() {
@@ -386,21 +398,13 @@ function GoalsPage() {
             Show all goals
           </button>
         </div>
-      ) : goals.length === 0 && categoriesReady && categories.length > 0 ? (
-        <section
-          className="goals-category-empty"
-          aria-labelledby="goals-category-empty-title">
-          <h2 id="goals-category-empty-title">Start with a life area</h2>
-          <p>Pick an area to create your first goal.</p>
-          <CategoryGrid
-            categories={categories}
-            selectedKey={null}
-            onSelect={(key) => openCreateDialog(key)}
-          />
-        </section>
       ) : goals.length === 0 ? (
-        <div className="goals-empty-state">
-          <p>No goals yet. Add a goal to get started.</p>
+        <>
+          <GoalsEmptyState
+            categories={categoriesReady ? categories : []}
+            onCreate={() => openCreateDialog()}
+            onSelectCategory={(key) => openCreateDialog(key)}
+          />
           {categoriesStatus === "failed" && (
             <div className="goals-load-error" role="alert">
               <p>{categoriesError}</p>
@@ -413,9 +417,16 @@ function GoalsPage() {
               </button>
             </div>
           )}
-        </div>
+        </>
       ) : filteredGoals.length === 0 ? (
-        <p className="goals-empty-state">No {filter.toLowerCase()} goals.</p>
+        <>
+          <p className="goals-empty-state">No {filter.toLowerCase()} goals.</p>
+          <GoalsEmptyState
+            categories={categoriesReady ? categories : []}
+            onCreate={() => openCreateDialog()}
+            onSelectCategory={(key) => openCreateDialog(key)}
+          />
+        </>
       ) : (
         <div className="goal-list" aria-label={`${filter} goals`}>
           {filteredGoals.map((goal) => {
@@ -592,192 +603,246 @@ function GoalsPage() {
             aria-modal="true"
             aria-labelledby="goal-dialog-title"
             onClick={(event) => event.stopPropagation()}>
-            <h2 id="goal-dialog-title">
-              {editingGoal ? "Edit goal" : "Add goal"}
+            <h2 id="goal-dialog-title" ref={headingRef} tabIndex={-1}>
+              {editingGoal ? "Edit goal" : "Where would you like to grow?"}
             </h2>
-            <form onSubmit={saveGoal}>
-              <label className="goals-form-field">
-                Title
-                <input
-                  autoFocus
-                  required
-                  value={title}
-                  onChange={(event) => setTitle(event.currentTarget.value)}
-                  aria-invalid={Boolean(formErrors.title)}
-                  aria-describedby={
-                    formErrors.title ? "goal-title-error" : undefined
-                  }
+            {!editingGoal && categoriesReady && (
+              <p className="goals-step-indicator" aria-live="polite">
+                Step {step} of 2 ·{" "}
+                {step === 1
+                  ? "Choose a life area to explore, or start with a goal of your own."
+                  : "Goal details"}
+              </p>
+            )}
+            {!editingGoal && step === 1 ? (
+              <div className="goals-category-step">
+                <CategoryGrid
+                  categories={categories}
+                  selectedKey={category}
+                  onSelect={setCategory}
+                  onSelectNone={() => setCategory(null)}
                 />
-                {formErrors.title && (
-                  <span className="goals-field-error" id="goal-title-error">
-                    {formErrors.title}
+                <footer className="goals-dialog-actions">
+                  <button
+                    className="goals-cancel-button"
+                    type="button"
+                    onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="goals-save-button"
+                    type="button"
+                    onClick={() => setStep(2)}>
+                    Continue
+                  </button>
+                </footer>
+              </div>
+            ) : (
+              <form onSubmit={saveGoal}>
+                <label className="goals-form-field">
+                  Title
+                  <input
+                    autoFocus
+                    required
+                    value={title}
+                    onChange={(event) => setTitle(event.currentTarget.value)}
+                    aria-invalid={Boolean(formErrors.title)}
+                    aria-describedby={
+                      formErrors.title ? "goal-title-error" : undefined
+                    }
+                  />
+                  {formErrors.title && (
+                    <span className="goals-field-error" id="goal-title-error">
+                      {formErrors.title}
+                    </span>
+                  )}
+                </label>
+                <div className="goals-category-field">
+                  <span id="goal-category-label">
+                    Life area <span>(Optional)</span>
                   </span>
-                )}
-              </label>
-              <div className="goals-category-field">
-                <span id="goal-category-label">
-                  Life area <span>(Optional)</span>
-                </span>
-                {categoriesReady ? (
-                  <>
-                    <CategoryGrid
-                      categories={categories}
-                      selectedKey={category}
-                      onSelect={(key) =>
-                        setCategory((current) => (current === key ? null : key))
-                      }
-                    />
-                    <select
-                      aria-labelledby="goal-category-label"
-                      value={category ?? ""}
-                      onChange={(event) =>
-                        setCategory(event.currentTarget.value || null)
-                      }
-                      aria-invalid={Boolean(formErrors.category)}
-                      aria-describedby="goal-category-help">
-                      <option value="">No category</option>
-                      {categories.map((option) => (
-                        <option key={option.key} value={option.key}>
-                          {option.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="goals-category-help" id="goal-category-help">
-                      {categories.find((option) => option.key === category)
-                        ?.description ?? "No category selected."}
+                  {categoriesReady ? (
+                    <>
+                      {editingGoal && (
+                        <CategoryGrid
+                          categories={categories}
+                          selectedKey={category}
+                          onSelect={(key) =>
+                            setCategory((current) =>
+                              current === key ? null : key
+                            )
+                          }
+                        />
+                      )}
+                      <select
+                        aria-labelledby="goal-category-label"
+                        value={category ?? ""}
+                        onChange={(event) =>
+                          setCategory(event.currentTarget.value || null)
+                        }
+                        aria-invalid={Boolean(formErrors.category)}
+                        aria-describedby="goal-category-help">
+                        <option value="">No category</option>
+                        {categories.map((option) => (
+                          <option key={option.key} value={option.key}>
+                            {option.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p
+                        className="goals-category-help"
+                        id="goal-category-help">
+                        {categories.find((option) => option.key === category)
+                          ?.description ?? "No category selected."}
+                      </p>
+                    </>
+                  ) : categoriesStatus === "failed" ? (
+                    <div className="goals-load-error" role="alert">
+                      <p>{categoriesError}</p>
+                      <button
+                        className="goals-retry-button"
+                        type="button"
+                        onClick={() => void dispatch(loadGoalCategories())}>
+                        <RefreshCw size={15} aria-hidden="true" />
+                        Try again
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="goals-category-help" role="status">
+                      Loading categories...
                     </p>
-                  </>
-                ) : categoriesStatus === "failed" ? (
-                  <div className="goals-load-error" role="alert">
-                    <p>{categoriesError}</p>
-                    <button
-                      className="goals-retry-button"
-                      type="button"
-                      onClick={() => void dispatch(loadGoalCategories())}>
-                      <RefreshCw size={15} aria-hidden="true" />
-                      Try again
-                    </button>
-                  </div>
-                ) : (
-                  <p className="goals-category-help" role="status">
-                    Loading categories...
+                  )}
+                  {formErrors.category && (
+                    <span className="goals-field-error" role="alert">
+                      {formErrors.category}
+                    </span>
+                  )}
+                </div>
+                <label className="goals-form-field">
+                  Description <span>(Optional)</span>
+                  <textarea
+                    rows={3}
+                    value={description}
+                    onChange={(event) =>
+                      setDescription(event.currentTarget.value)
+                    }
+                  />
+                  {formErrors.description && (
+                    <span className="goals-field-error">
+                      {formErrors.description}
+                    </span>
+                  )}
+                </label>
+                <label className="goals-form-field">
+                  Why does this goal matter to you? <span>(Optional)</span>
+                  <textarea
+                    rows={3}
+                    value={motivation}
+                    placeholder="e.g. It will help me grow in my career."
+                    onChange={(event) =>
+                      setMotivation(event.currentTarget.value)
+                    }
+                  />
+                  {formErrors.motivation && (
+                    <span className="goals-field-error">
+                      {formErrors.motivation}
+                    </span>
+                  )}
+                </label>
+                <label className="goals-form-field">
+                  Timeline
+                  <select
+                    required
+                    value={timeline}
+                    onChange={(event) =>
+                      setTimeline(event.currentTarget.value as GoalTimeline)
+                    }
+                    aria-invalid={Boolean(formErrors.timeline)}>
+                    {GOAL_TIMELINE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.timeline && (
+                    <span className="goals-field-error">
+                      {formErrors.timeline}
+                    </span>
+                  )}
+                </label>
+                <label className="goals-form-field">
+                  Start date
+                  <input
+                    type="date"
+                    required
+                    value={startDate}
+                    onChange={(event) =>
+                      setStartDate(event.currentTarget.value)
+                    }
+                    aria-invalid={Boolean(formErrors.start_date)}
+                    aria-describedby={
+                      formErrors.start_date
+                        ? "goal-start-date-error"
+                        : undefined
+                    }
+                  />
+                  {formErrors.start_date && (
+                    <span
+                      className="goals-field-error"
+                      id="goal-start-date-error">
+                      {formErrors.start_date}
+                    </span>
+                  )}
+                </label>
+                <label className="goals-form-field">
+                  Due date <span>(Optional)</span>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(event) => setDueDate(event.currentTarget.value)}
+                    aria-invalid={Boolean(formErrors.due_date)}
+                  />
+                  {formErrors.due_date && (
+                    <span className="goals-field-error">
+                      {formErrors.due_date}
+                    </span>
+                  )}
+                </label>
+                {saveError && (
+                  <p className="goals-form-error" role="alert">
+                    {saveError}
                   </p>
                 )}
-                {formErrors.category && (
-                  <span className="goals-field-error" role="alert">
-                    {formErrors.category}
-                  </span>
-                )}
-              </div>
-              <label className="goals-form-field">
-                Description <span>(Optional)</span>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(event) =>
-                    setDescription(event.currentTarget.value)
-                  }
-                />
-                {formErrors.description && (
-                  <span className="goals-field-error">
-                    {formErrors.description}
-                  </span>
-                )}
-              </label>
-              <label className="goals-form-field">
-                Why does this goal matter to you? <span>(Optional)</span>
-                <textarea
-                  rows={3}
-                  value={motivation}
-                  placeholder="e.g. It will help me grow in my career."
-                  onChange={(event) => setMotivation(event.currentTarget.value)}
-                />
-                {formErrors.motivation && (
-                  <span className="goals-field-error">
-                    {formErrors.motivation}
-                  </span>
-                )}
-              </label>
-              <label className="goals-form-field">
-                Timeline
-                <select
-                  required
-                  value={timeline}
-                  onChange={(event) =>
-                    setTimeline(event.currentTarget.value as GoalTimeline)
-                  }
-                  aria-invalid={Boolean(formErrors.timeline)}>
-                  {GOAL_TIMELINE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.timeline && (
-                  <span className="goals-field-error">
-                    {formErrors.timeline}
-                  </span>
-                )}
-              </label>
-              <label className="goals-form-field">
-                Start date
-                <input
-                  type="date"
-                  required
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.currentTarget.value)}
-                  aria-invalid={Boolean(formErrors.start_date)}
-                  aria-describedby={
-                    formErrors.start_date ? "goal-start-date-error" : undefined
-                  }
-                />
-                {formErrors.start_date && (
-                  <span
-                    className="goals-field-error"
-                    id="goal-start-date-error">
-                    {formErrors.start_date}
-                  </span>
-                )}
-              </label>
-              <label className="goals-form-field">
-                Due date <span>(Optional)</span>
-                <input
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.currentTarget.value)}
-                  aria-invalid={Boolean(formErrors.due_date)}
-                />
-                {formErrors.due_date && (
-                  <span className="goals-field-error">
-                    {formErrors.due_date}
-                  </span>
-                )}
-              </label>
-              {saveError && (
-                <p className="goals-form-error" role="alert">
-                  {saveError}
-                </p>
-              )}
-              <footer className="goals-dialog-actions">
-                <button
-                  className="goals-cancel-button"
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </button>
-                <button
-                  className="goals-save-button"
-                  type="submit"
-                  disabled={isSaving}>
-                  {isSaving
-                    ? "Saving..."
-                    : editingGoal
-                      ? "Save changes"
-                      : "Add Goal"}
-                </button>
-              </footer>
-            </form>
+                <footer className="goals-dialog-actions">
+                  {!editingGoal && categoriesReady && (
+                    <button
+                      className="goals-cancel-button"
+                      type="button"
+                      disabled={isSaving}
+                      onClick={() => setStep(1)}>
+                      Back
+                    </button>
+                  )}
+                  <button
+                    className="goals-cancel-button"
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => setIsDialogOpen(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="goals-save-button"
+                    type="submit"
+                    disabled={isSaving}>
+                    {isSaving
+                      ? "Saving..."
+                      : editingGoal
+                        ? "Save changes"
+                        : "Add Goal"}
+                  </button>
+                </footer>
+              </form>
+            )}
           </section>
         </div>
       )}
